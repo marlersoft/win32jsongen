@@ -269,9 +269,8 @@ namespace JsonWin32Generator
             string name = this.mr.GetString(fieldDef.Name);
             Constant constant = this.mr.GetConstant(fieldDef.GetDefaultValue());
             string value = constant.ReadConstValue(this.mr);
-            var typeRef = TypeRef.Primitive.Get(constant.TypeCode.ToPrimitiveTypeCode());
             writer.WriteLine("\"Name\":\"{0}\"", name);
-            writer.WriteLine(",\"Type\":{0}", typeRef.ToJson());
+            writer.WriteLine(",\"NativeType\":\"{0}\"", constant.TypeCode.ToPrimitiveTypeCode());
             writer.WriteLine(",\"Value\":{0}", value);
             WriteJsonArray(writer, ",\"Attrs\":", jsonAttributes);
         }
