@@ -426,16 +426,22 @@ namespace JsonWin32Generator
             foreach (FieldDefinitionHandle fieldDefHandle in typeInfo.Def.GetFields())
             {
                 FieldDefinition fieldDef = this.mr.GetFieldDefinition(fieldDefHandle);
-
-                // TODO: decode fieldDef.Attributes and verify them with Enforce.Data
-                ConstantHandle constantHandle = fieldDef.GetDefaultValue();
-                string value = "null";
-                if (!constantHandle.IsNil)
+                string fieldName = this.mr.GetString(fieldDef.Name);
+                if (fieldDef.Attributes == (FieldAttributes.Public | FieldAttributes.SpecialName | FieldAttributes.RTSpecialName))
                 {
-                    Constant constant = this.mr.GetConstant(constantHandle);
-                    value = constant.ReadConstValue(this.mr);
+                    Enforce.Data(fieldName == "value__");
+                    continue;
                 }
-                writer.WriteLine("{0}{{\"Name\":\"{1}\",\"Value\":{2}}}", valueElemPrefix, this.mr.GetString(fieldDef.Name), value);
+                Enforce.Data(fieldDef.Attributes == (
+                    FieldAttributes.Public |
+                    FieldAttributes.Static |
+                    FieldAttributes.Literal |
+                    FieldAttributes.HasDefault));
+                Enforce.Data(fieldDef.GetCustomAttributes().Count == 0);
+                Enforce.Data(fieldDef.GetOffset() == -1);
+                Enforce.Data(fieldDef.GetRelativeVirtualAddress() == 0);
+                string value = this.mr.GetConstant(fieldDef.GetDefaultValue()).ReadConstValue(this.mr);
+                writer.WriteLine("{0}{{\"Name\":\"{1}\",\"Value\":{2}}}", valueElemPrefix, fieldName, value);
                 valueElemPrefix = ",";
             }
             writer.Untab();
