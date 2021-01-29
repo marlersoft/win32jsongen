@@ -475,23 +475,46 @@ namespace JsonWin32Generator
             TypeLayout layout = typeInfo.Def.GetLayout();
             writer.WriteLine(",\"Size\":\"{0}\"", layout.Size);
             writer.WriteLine(",\"PackingSize\":\"{0}\"", layout.PackingSize);
+            List<string> constFields = new List<string>();
             writer.WriteLine(",\"Fields\":[");
             writer.Tab();
             string fieldElemPrefix = string.Empty;
             foreach (FieldDefinitionHandle fieldDefHandle in typeInfo.Def.GetFields())
             {
                 FieldDefinition fieldDef = this.mr.GetFieldDefinition(fieldDefHandle);
-
-                // TODO: need to decode fieldDef.Attributes, need
-                //       to handle static/const fields vs instance fields
-                //       const field should have default values
                 string fieldName = this.mr.GetString(fieldDef.Name);
-                string fieldTypeJson = fieldDef.DecodeSignature(this.typeRefDecoder, null).ToJson();
-                writer.WriteLine("{0}{{\"Name\":\"{1}\",\"Type\":{2}}}", fieldElemPrefix, fieldName, fieldTypeJson);
-                fieldElemPrefix = ",";
+                if (fieldDef.Attributes == (FieldAttributes.Public | FieldAttributes.Static | FieldAttributes.Literal | FieldAttributes.HasDefault))
+                {
+                    // I'm not sure whether the metadata intended to put constants inside types like this or if they
+                    // should be moved to the special "Api" type.  If so, I'll have to put them somewhere, not sure where yet though.
+                    // I could add a "Constants" subfield, but right now only 2 types have these const fields so it's not worth adding
+                    // this extra field to every single type just to accomodate some const fields on a couple types.
+                    // Maybe I should open a github issue about this?  Ask why these are the only 2 types using const fields.
+                    Enforce.Data(typeInfo.Name == "WSDXML_NODE" || typeInfo.Name == "WhitePoint");
+                    Enforce.Data(fieldDef.GetCustomAttributes().Count == 0);
+                    Enforce.Data(fieldDef.GetOffset() == -1);
+                    Enforce.Data(fieldDef.GetRelativeVirtualAddress() == 0);
+                    Constant constant = this.mr.GetConstant(fieldDef.GetDefaultValue());
+                    string value = constant.ReadConstValue(this.mr);
+                    constFields.Add(Fmt.In($"{constant.TypeCode} {fieldName} = {value}"));
+                }
+                else
+                {
+                    Enforce.Data(fieldDef.Attributes == FieldAttributes.Public);
+                    string fieldTypeJson = fieldDef.DecodeSignature(this.typeRefDecoder, null).ToJson();
+                    writer.WriteLine("{0}{{\"Name\":\"{1}\",\"Type\":{2}}}", fieldElemPrefix, fieldName, fieldTypeJson);
+                    fieldElemPrefix = ",";
+                }
             }
             writer.Untab();
             writer.WriteLine("]");
+            if (constFields.Count > 0)
+            {
+                writer.WriteLine(
+                    ",\"Comment\":\"This type has {0} const fields, not sure if it's supposed to: {1}\"",
+                    constFields.Count,
+                    string.Join(", ", constFields));
+            }
             Enforce.Data(typeInfo.Def.GetMethods().Count == 0);
             this.GenerateNestedTypes(writer, typeInfo);
         }
