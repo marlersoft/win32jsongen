@@ -12,6 +12,6 @@ Before running the Generator, you'll need a place to store the JSON files. The g
 git clone https://github.com/marlersoft/win32json
 ```
 
-## 2. Generate the JSON files
+## 2. Build/Run the Generator
 
 Running `Generator/JsonWin32Generator.sln" will generate the JSON files with "Visual Studio 2019", otherwise, see [RunningWithoutVisualStudio.md](RunningWithoutVisualStudio.md).
