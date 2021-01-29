@@ -1,0 +1,11 @@
+obj/
+bin/
+.vs/
+
+# ignore the CsWin32 project if the user cloned it to be
+# able to use its "init.ps1" script
+/CsWin32/
+
+# ignore the win32json sub repository if the user cloned it to a directory
+# inside this repository
+/win32json/
