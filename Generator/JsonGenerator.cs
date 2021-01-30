@@ -462,18 +462,21 @@ namespace JsonWin32Generator
 
         private void GenerateStruct(TabWriter writer, TypeGenInfo typeInfo, TypeLayoutKind layoutKind)
         {
+            string kind;
             if (layoutKind == TypeLayoutKind.Explicit)
             {
                 writer.WriteLine(",\"Comment\":\"TODO: Explicit layout data implemented\"");
+                kind = "StructOrUnion";
             }
             else
             {
                 Enforce.Data(layoutKind == TypeLayoutKind.Sequential);
+                kind = "Struct";
             }
-            writer.WriteLine(",\"Kind\":\"Struct or Union (I think?)\"");
+            writer.WriteLine(",\"Kind\":\"{0}\"", kind);
             TypeLayout layout = typeInfo.Def.GetLayout();
-            writer.WriteLine(",\"Size\":\"{0}\"", layout.Size);
-            writer.WriteLine(",\"PackingSize\":\"{0}\"", layout.PackingSize);
+            writer.WriteLine(",\"Size\":{0}", layout.Size);
+            writer.WriteLine(",\"PackingSize\":{0}", layout.PackingSize);
             List<string> constFields = new List<string>();
             writer.WriteLine(",\"Fields\":[");
             writer.Tab();
