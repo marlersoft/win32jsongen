@@ -598,7 +598,7 @@ namespace JsonWin32Generator
                 Enforce.Data(paramName.Length > 0);
 
                 var paramType = methodSig.ParameterTypes[param.SequenceNumber - 1];
-                writer.WriteLine("{0}{{\"name\":\"{1}\",\"type\":{2}}}", paramFieldPrefix, paramName, paramType.ToJson());
+                writer.WriteLine("{0}{{\"Name\":\"{1}\",\"Type\":{2}}}", paramFieldPrefix, paramName, paramType.ToJson());
                 paramFieldPrefix = ",";
             }
             writer.Untab();
