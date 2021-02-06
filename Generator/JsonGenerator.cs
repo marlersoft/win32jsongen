@@ -422,6 +422,7 @@ namespace JsonWin32Generator
             writer.WriteLine(",\"Values\":[");
             writer.Tab();
             string valueElemPrefix = string.Empty;
+            ConstantTypeCode? integerBase = null;
             foreach (FieldDefinitionHandle fieldDefHandle in typeInfo.Def.GetFields())
             {
                 FieldDefinition fieldDef = this.mr.GetFieldDefinition(fieldDefHandle);
@@ -439,12 +440,17 @@ namespace JsonWin32Generator
                 Enforce.Data(fieldDef.GetCustomAttributes().Count == 0);
                 Enforce.Data(fieldDef.GetOffset() == -1);
                 Enforce.Data(fieldDef.GetRelativeVirtualAddress() == 0);
-                string value = this.mr.GetConstant(fieldDef.GetDefaultValue()).ReadConstValue(this.mr);
+                Constant valueConstant = this.mr.GetConstant(fieldDef.GetDefaultValue());
+                integerBase = integerBase.HasValue ? integerBase.Value : valueConstant.TypeCode;
+                Enforce.Data(integerBase == valueConstant.TypeCode);
+                string value = valueConstant.ReadConstValue(this.mr);
                 writer.WriteLine("{0}{{\"Name\":\"{1}\",\"Value\":{2}}}", valueElemPrefix, fieldName, value);
                 valueElemPrefix = ",";
             }
             writer.Untab();
             writer.WriteLine("]");
+            string quotes = integerBase.HasValue ? "\"" : "";
+            writer.WriteLine(",\"IntegerBase\":{0}{1}{2}", quotes, integerBase.HasValue ? integerBase.Value.ToPrimitiveTypeCode() : "null", quotes);
             Enforce.Data(typeInfo.Def.GetMethods().Count == 0);
             Enforce.Data(typeInfo.NestedTypeCount == 0);
         }
