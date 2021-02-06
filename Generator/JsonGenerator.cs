@@ -304,8 +304,6 @@ namespace JsonWin32Generator
             Enforce.Data(typeInfo.Def.BaseType.IsNil == attrs.IsAbstract);
 
             List<string> jsonAttributes = new List<string>();
-
-            // TODO: how many types have guids?  should it be a direct field or an attribute?
             bool isNativeTypedef = false;
 
             foreach (CustomAttributeHandle attrHandle in typeInfo.Def.GetCustomAttributes())
@@ -449,7 +447,7 @@ namespace JsonWin32Generator
             }
             writer.Untab();
             writer.WriteLine("]");
-            string quotes = integerBase.HasValue ? "\"" : "";
+            string quotes = integerBase.HasValue ? "\"" : string.Empty;
             writer.WriteLine(",\"IntegerBase\":{0}{1}{2}", quotes, integerBase.HasValue ? integerBase.Value.ToPrimitiveTypeCode() : "null", quotes);
             Enforce.Data(typeInfo.Def.GetMethods().Count == 0);
             Enforce.Data(typeInfo.NestedTypeCount == 0);

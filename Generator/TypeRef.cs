@@ -175,12 +175,12 @@ namespace JsonWin32Generator
             }
         }
 
-        internal class UnhandledClrType : TypeRef
+        internal class MissingClrType : TypeRef
         {
             private readonly string @namespace;
             private readonly string name;
 
-            internal UnhandledClrType(string @namespace, string name)
+            internal MissingClrType(string @namespace, string name)
             {
                 this.@namespace = @namespace;
                 this.name = name;
@@ -188,7 +188,7 @@ namespace JsonWin32Generator
 
             internal override void FormatTypeJson(StringBuilder builder)
             {
-                builder.AppendFormat(CultureInfo.InvariantCulture, "{{\"Kind\":\"TODO\",\"ClrName\":\"{0}.{1}\"}}", this.@namespace, this.name);
+                builder.AppendFormat(CultureInfo.InvariantCulture, "{{\"Kind\":\"MissingClrType\",\"Name\":\"{0}\",\"Namespace\":\"{1}\"}}", this.name, this.@namespace);
             }
         }
     }

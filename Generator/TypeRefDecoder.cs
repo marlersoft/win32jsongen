@@ -115,9 +115,11 @@ namespace JsonWin32Generator
                 }
                 else if (@namespace == "Windows.System")
                 {
+                    // Looks like this may be defined in another metadata binary?
+                    //    https://github.com/microsoft/win32metadata/issues/126
                     if (name == "DispatcherQueueController")
                     {
-                        return new TypeRef.UnhandledClrType(@namespace, name);
+                        return new TypeRef.MissingClrType(@namespace, name);
                     }
                 }
 
