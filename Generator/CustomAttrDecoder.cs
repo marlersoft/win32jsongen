@@ -30,6 +30,11 @@ namespace JsonWin32Generator
                 return CustomAttrType.Str.Instance;
             }
 
+            if (code == PrimitiveTypeCode.Int16)
+            {
+                return CustomAttrType.Int16.Instance;
+            }
+
             throw new NotImplementedException("Only string and bool primitive types have been implemented for custom attributes");
         }
 
@@ -91,6 +96,13 @@ namespace JsonWin32Generator
             internal override string FormatValue(object? value) => Fmt.In($"Bool({value})");
         }
 
+        internal class Int16 : CustomAttrType
+        {
+            internal static readonly Int16 Instance = new Int16();
+
+            internal override string FormatValue(object? value) => Fmt.In($"Int16({value})");
+        }
+
         internal class CallConv : CustomAttrType
         {
             internal static readonly CallConv Instance = new CallConv();
@@ -120,11 +132,18 @@ namespace JsonWin32Generator
         }
     }
 
-    internal class ConstantAttr
+    internal class CustomAttr
     {
-        internal static readonly ConstantAttr Instance = new ConstantAttr();
+        internal class Const : CustomAttr
+        {
+            internal static readonly Const Instance = new Const();
 
-        internal class NativeTypeInfo : ConstantAttr
+            private Const()
+            {
+            }
+        }
+
+        internal class NativeTypeInfo : CustomAttr
         {
             internal NativeTypeInfo(UnmanagedType unmanagedType, bool isNullTerminated)
             {
@@ -137,7 +156,7 @@ namespace JsonWin32Generator
             internal bool IsNullTerminated { get; }
         }
 
-        internal class Obsolete : ConstantAttr
+        internal class Obsolete : CustomAttr
         {
             internal Obsolete(string message)
             {
@@ -146,11 +165,8 @@ namespace JsonWin32Generator
 
             internal string Message { get; }
         }
-    }
 
-    internal class BasicTypeAttr
-    {
-        internal class Guid : BasicTypeAttr
+        internal class Guid : CustomAttr
         {
             internal Guid(string value)
             {
@@ -160,7 +176,7 @@ namespace JsonWin32Generator
             internal string Value { get; }
         }
 
-        internal class RaiiFree : BasicTypeAttr
+        internal class RaiiFree : CustomAttr
         {
             internal RaiiFree(string freeFunc)
             {
@@ -170,11 +186,11 @@ namespace JsonWin32Generator
             internal string FreeFunc { get; }
         }
 
-        internal class NativeTypedef : BasicTypeAttr
+        internal class NativeTypedef : CustomAttr
         {
         }
 
-        internal class UnmanagedFunctionPointer : BasicTypeAttr
+        internal class UnmanagedFunctionPointer : CustomAttr
         {
         }
     }

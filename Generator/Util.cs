@@ -9,6 +9,7 @@ namespace JsonWin32Generator
 {
     using System;
     using System.IO;
+    using System.Reflection;
     using System.Reflection.Metadata;
     using System.Runtime.InteropServices;
 
@@ -78,6 +79,17 @@ namespace JsonWin32Generator
             }
 
             throw new InvalidDataException("Unsupported attribute constructor kind: " + attr.Constructor.Kind);
+        }
+
+        internal static bool ConsumeFlag(this ParameterAttributes flag, ref ParameterAttributes attrs)
+        {
+            if ((attrs & flag) == flag)
+            {
+                attrs &= ~flag;
+                return true;
+            }
+
+            return false;
         }
 
         internal static string ReadConstValue(this Constant constant, MetadataReader mr)
