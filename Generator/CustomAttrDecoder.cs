@@ -7,6 +7,7 @@
 namespace JsonWin32Generator
 {
     using System;
+    using System.Collections.Generic;
     using System.Reflection.Metadata;
     using System.Runtime.InteropServices;
 
@@ -33,6 +34,11 @@ namespace JsonWin32Generator
             if (code == PrimitiveTypeCode.Int16)
             {
                 return CustomAttrType.Int16.Instance;
+            }
+
+            if (code == PrimitiveTypeCode.Int32)
+            {
+                return CustomAttrType.Int32.Instance;
             }
 
             throw new NotImplementedException("Only string and bool primitive types have been implemented for custom attributes");
@@ -65,7 +71,15 @@ namespace JsonWin32Generator
             throw new NotImplementedException();
         }
 
-        public CustomAttrType GetTypeFromSerializedName(string name) => throw new NotImplementedException();
+        public CustomAttrType GetTypeFromSerializedName(string name)
+        {
+            if (name == "System.Runtime.InteropServices.UnmanagedType")
+            {
+                return CustomAttrType.UnmanagedType.Instance;
+            }
+
+            throw new NotImplementedException();
+        }
 
         public PrimitiveTypeCode GetUnderlyingEnumType(CustomAttrType type)
         {
@@ -87,6 +101,26 @@ namespace JsonWin32Generator
 
     internal abstract class CustomAttrType
     {
+        private static readonly Dictionary<Type, CustomAttrType> PrimitiveToCustomAttrTypeMap = new Dictionary<Type, CustomAttrType>();
+
+        static CustomAttrType()
+        {
+            PrimitiveToCustomAttrTypeMap.Add(typeof(bool), CustomAttrType.Bool.Instance);
+            PrimitiveToCustomAttrTypeMap.Add(typeof(short), CustomAttrType.Int16.Instance);
+            PrimitiveToCustomAttrTypeMap.Add(typeof(int), CustomAttrType.Int32.Instance);
+            PrimitiveToCustomAttrTypeMap.Add(typeof(System.Runtime.InteropServices.UnmanagedType), CustomAttrType.UnmanagedType.Instance);
+        }
+
+        internal static CustomAttrType ToCustomAttrType(Type type)
+        {
+            if (PrimitiveToCustomAttrTypeMap.TryGetValue(type, out CustomAttrType? result))
+            {
+                return result;
+            }
+
+            throw new ArgumentException(Fmt.In($"converting type '{type}' to a CustomAttrType is not implemented"));
+        }
+
         internal abstract string FormatValue(object? value);
 
         internal class Bool : CustomAttrType
@@ -101,6 +135,13 @@ namespace JsonWin32Generator
             internal static readonly Int16 Instance = new Int16();
 
             internal override string FormatValue(object? value) => Fmt.In($"Int16({value})");
+        }
+
+        internal class Int32 : CustomAttrType
+        {
+            internal static readonly Int32 Instance = new Int32();
+
+            internal override string FormatValue(object? value) => Fmt.In($"Int32({value})");
         }
 
         internal class CallConv : CustomAttrType
@@ -145,15 +186,27 @@ namespace JsonWin32Generator
 
         internal class NativeTypeInfo : CustomAttr
         {
-            internal NativeTypeInfo(UnmanagedType unmanagedType, bool isNullTerminated)
+            internal NativeTypeInfo(UnmanagedType unmanagedType, bool isNullTerminated, bool isNullNullTerminated, short? sizeParamIndex, UnmanagedType? arraySubType, int? sizeConst)
             {
                 this.UnmanagedType = unmanagedType;
                 this.IsNullTerminated = isNullTerminated;
+                this.IsNullNullTerminated = isNullNullTerminated;
+                this.SizeParamIndex = sizeParamIndex;
+                this.ArraySubType = arraySubType;
+                this.SizeConst = sizeConst;
             }
 
             internal UnmanagedType UnmanagedType { get; }
 
             internal bool IsNullTerminated { get; }
+
+            internal bool IsNullNullTerminated { get; }
+
+            internal short? SizeParamIndex { get; }
+
+            internal UnmanagedType? ArraySubType { get; }
+
+            internal int? SizeConst { get; }
         }
 
         internal class Obsolete : CustomAttr
@@ -188,10 +241,29 @@ namespace JsonWin32Generator
 
         internal class NativeTypedef : CustomAttr
         {
+            internal static readonly NativeTypedef Instance = new NativeTypedef();
+
+            private NativeTypedef()
+            {
+            }
         }
 
         internal class UnmanagedFunctionPointer : CustomAttr
         {
+            internal static readonly UnmanagedFunctionPointer Instance = new UnmanagedFunctionPointer();
+
+            private UnmanagedFunctionPointer()
+            {
+            }
+        }
+
+        internal class ComOutPtr : CustomAttr
+        {
+            internal static readonly ComOutPtr Instance = new ComOutPtr();
+
+            private ComOutPtr()
+            {
+            }
         }
     }
 }

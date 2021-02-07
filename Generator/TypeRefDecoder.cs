@@ -67,7 +67,7 @@ namespace JsonWin32Generator
 
         public TypeRef GetPointerType(TypeRef from)
         {
-            return new TypeRef.Ptr(from);
+            return new TypeRef.PointerTo(from);
         }
 
         public TypeRef GetPrimitiveType(PrimitiveTypeCode typeCode)

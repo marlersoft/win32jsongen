@@ -7,10 +7,17 @@ namespace JsonWin32Generator
     using System;
     using System.Globalization;
     using System.Reflection.Metadata;
+    using System.Runtime.InteropServices;
     using System.Text;
 
     internal abstract class TypeRef
     {
+        internal enum LPStringType
+        {
+            LPStr,
+            LPWStr,
+        }
+
         internal string ToJson()
         {
             StringBuilder builder = new StringBuilder();
@@ -19,6 +26,22 @@ namespace JsonWin32Generator
         }
 
         internal abstract void FormatTypeJson(StringBuilder builder);
+
+        private TypeRef GetChildType()
+        {
+            if (this is TypeRef.PointerTo pointerTo)
+            {
+                return pointerTo.ChildType;
+            }
+            else if (object.ReferenceEquals(this, Primitive.IntPtr))
+            {
+                return Primitive.Void;
+            }
+            else
+            {
+                throw Violation.Data();
+            }
+        }
 
         internal class ArrayOf : TypeRef
         {
@@ -60,9 +83,9 @@ namespace JsonWin32Generator
             }
         }
 
-        internal class Ptr : TypeRef
+        internal class PointerTo : TypeRef
         {
-            internal Ptr(TypeRef childType)
+            internal PointerTo(TypeRef childType)
             {
                 this.ChildType = childType;
             }
@@ -172,6 +195,76 @@ namespace JsonWin32Generator
             internal override void FormatTypeJson(StringBuilder builder)
             {
                 builder.Append("{\"Kind\":\"Native\",\"Name\":\"Guid\"}");
+            }
+        }
+
+        internal class LPArray : TypeRef
+        {
+            internal LPArray(CustomAttr.NativeTypeInfo info, TypeRef typeRef)
+            {
+                Enforce.Data(!info.IsNullTerminated);
+                this.NullNullTerm = info.IsNullNullTerminated;
+                this.SizeParamIndex = info.SizeParamIndex.HasValue ? info.SizeParamIndex.Value : -1;
+                this.SizeConst = info.SizeConst.HasValue ? info.SizeConst.Value : -1;
+                this.ArraySubType = !info.ArraySubType.HasValue ? null : info.ArraySubType.Value switch
+                {
+                    UnmanagedType.LPStr => LPStringType.LPStr,
+                    UnmanagedType.LPWStr => LPStringType.LPWStr,
+                    _ => throw Violation.Data(),
+
+                };
+                this.ChildType = typeRef.GetChildType();
+            }
+
+            internal bool NullNullTerm { get; }
+
+            internal short SizeParamIndex { get; }
+
+            internal int SizeConst { get; }
+
+            internal LPStringType? ArraySubType { get; }
+
+            internal TypeRef ChildType { get; }
+
+            internal override void FormatTypeJson(StringBuilder builder)
+            {
+                builder.Append($"{{\"Kind\":\"LPArray\",\"NullNullTerm\":{this.NullNullTerm.Json()},\"SizeParamIndex\":{this.SizeParamIndex},\"SizeConst\":{this.SizeConst},\"ArraySubType\":{this.ArraySubType.JsonString()},\"Child\":");
+                this.ChildType.FormatTypeJson(builder);
+                builder.Append('}');
+            }
+        }
+
+        internal class LPStr : TypeRef
+        {
+            internal LPStr(CustomAttr.NativeTypeInfo info, TypeRef typeRef)
+            {
+                Enforce.Data(!info.SizeParamIndex.HasValue);
+                Enforce.Data(!info.ArraySubType.HasValue);
+                Enforce.Data(!info.SizeConst.HasValue);
+                this.Wide = info.UnmanagedType switch
+                {
+                    UnmanagedType.LPStr => false,
+                    UnmanagedType.LPWStr => true,
+                    _ => throw Violation.Data(),
+                };
+                this.NullTerm = info.IsNullTerminated;
+                this.NullNullTerm = info.IsNullNullTerminated;
+                this.ChildType = typeRef.GetChildType();
+            }
+
+            internal bool Wide { get; }
+
+            internal bool NullTerm { get; }
+
+            internal bool NullNullTerm { get; }
+
+            internal TypeRef ChildType { get; }
+
+            internal override void FormatTypeJson(StringBuilder builder)
+            {
+                builder.Append($"{{\"Kind\":\"LPStr\",\"Wide\":{this.Wide.Json()},\"NullTerm\":{this.NullTerm.Json()},\"NullNullTerm\":{this.NullNullTerm.Json()},\"Child\":");
+                this.ChildType.FormatTypeJson(builder);
+                builder.Append('}');
             }
         }
 

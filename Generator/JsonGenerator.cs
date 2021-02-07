@@ -262,7 +262,7 @@ namespace JsonWin32Generator
                 }
                 else
                 {
-                    Enforce.Data(false);
+                    Violation.Data();
                 }
             }
 
@@ -346,8 +346,6 @@ namespace JsonWin32Generator
 
             if (typeInfo.Def.BaseType.IsNil)
             {
-                writer.WriteLine(",\"Kind\":\"COM\"");
-
                 this.GenerateComType(writer, typeInfo);
                 return;
             }
@@ -575,7 +573,7 @@ namespace JsonWin32Generator
             Enforce.Data(methodSig.Header.CallingConvention == SignatureCallingConvention.Default);
             Enforce.Data(methodSig.Header.Attributes == SignatureAttributes.None);
 
-            writer.WriteLine(",\"SetLastError\":{0}", methodImportAttrs.SetLastError ? "true" : "false");
+            writer.WriteLine(",\"SetLastError\":{0}", methodImportAttrs.SetLastError.Json());
             writer.WriteLine(",\"DllImport\":\"{0}\"", importName);
             writer.WriteLine(",\"ReturnType\":{0}", methodSig.ReturnType.ToJson());
             writer.WriteLine(",\"Params\":[");
@@ -594,7 +592,6 @@ namespace JsonWin32Generator
                 Enforce.Data(param.SequenceNumber == nextExpectedSequenceNumber, "parameters were not ordered");
                 nextExpectedSequenceNumber++;
 
-                // TODO: handle param.GetCustomAttributes()
                 // TODO: handle param.GetMarshallingDescriptor();
                 Enforce.Data(param.GetDefaultValue().IsNil);
                 List<string> jsonAttributes = new List<string>();
@@ -612,18 +609,40 @@ namespace JsonWin32Generator
                     jsonAttributes.Add("\"Optional\"");
                 }
                 Enforce.Data(remainingAttrs == ParameterAttributes.None);
+                TypeRef paramType = methodSig.ParameterTypes[param.SequenceNumber - 1];
                 foreach (CustomAttributeHandle attrHandle in param.GetCustomAttributes())
                 {
-                    // TODO: handle these
-                    //CustomAttr attr = this.DecodeCustomAttr(this.mr.GetCustomAttribute(attrHandle));
+                    CustomAttr attr = this.DecodeCustomAttr(attrHandle);
+                    if (object.ReferenceEquals(attr, CustomAttr.Const.Instance))
+                    {
+                        jsonAttributes.Add("\"Const\"");
+                    }
+                    else if (object.ReferenceEquals(attr, CustomAttr.ComOutPtr.Instance))
+                    {
+                        jsonAttributes.Add("\"ComOutPtr\"");
+                    }
+                    else if (attr is CustomAttr.NativeTypeInfo nativeTypeInfo)
+                    {
+                        if (nativeTypeInfo.UnmanagedType == UnmanagedType.LPArray)
+                        {
+                            paramType = new TypeRef.LPArray(nativeTypeInfo, paramType);
+                        }
+                        else
+                        {
+                            paramType = new TypeRef.LPStr(nativeTypeInfo, paramType);
+                        }
+                    }
+                    else
+                    {
+                        Violation.Data();
+                    }
                 }
 
                 string paramName = this.mr.GetString(param.Name);
                 Enforce.Data(paramName.Length > 0);
 
-                var paramType = methodSig.ParameterTypes[param.SequenceNumber - 1];
-                string prefix = Fmt.In($"{paramFieldPrefix}{{\"Name\":\"{paramName}\",\"Type\":{paramType.ToJson()},\"Attrs\":");
-                WriteJsonArray(writer, prefix, jsonAttributes, "}");
+                string attrs = string.Join(",", jsonAttributes);
+                writer.WriteLine($"{paramFieldPrefix}{{\"Name\":\"{paramName}\",\"Type\":{paramType.ToJson()},\"Attrs\":[{attrs}]}}");
                 paramFieldPrefix = ",";
             }
             writer.Untab();
@@ -648,11 +667,53 @@ namespace JsonWin32Generator
             if (attrName == new NamespaceAndName("Windows.Win32.Interop", "NativeTypeInfoAttribute"))
             {
                 Enforce.AttrFixedArgCount(attrName, attrArgs, 1);
-                Enforce.AttrNamedArgCount(attrName, attrArgs, 1);
                 UnmanagedType unmanagedType = Enforce.AttrFixedArgAsUnmanagedType(attrArgs.FixedArguments[0]);
-                Enforce.NamedArgName(attrName, attrArgs, "IsNullTerminated", 0);
-                bool isNullTerminated = Enforce.AttrNamedAsBool(attrArgs.NamedArguments[0]);
-                return new CustomAttr.NativeTypeInfo(unmanagedType, isNullTerminated);
+                bool isNullTerminated = false;
+                bool isNullNullTerminated = false;
+                short? sizeParamIndex = null;
+                UnmanagedType? arraySubType = null;
+                int? sizeConst = null;
+
+                foreach (CustomAttributeNamedArgument<CustomAttrType> namedArg in attrArgs.NamedArguments)
+                {
+                    if (namedArg.Name == "IsNullTerminated")
+                    {
+                        Enforce.Data(isNullTerminated == false);
+                        isNullTerminated = Enforce.NamedAttrAs<bool>(namedArg);
+                    }
+                    else if (namedArg.Name == "IsNullNullTerminated")
+                    {
+                        Enforce.Data(isNullNullTerminated == false);
+                        isNullNullTerminated = Enforce.NamedAttrAs<bool>(namedArg);
+                    }
+                    else if (namedArg.Name == "SizeParamIndex")
+                    {
+                        Enforce.Data(!sizeParamIndex.HasValue);
+                        sizeParamIndex = Enforce.NamedAttrAs<short>(namedArg);
+                    }
+                    else if (namedArg.Name == "ArraySubType")
+                    {
+                        Enforce.Data(!arraySubType.HasValue);
+                        arraySubType = Enforce.NamedAttrAs<UnmanagedType>(namedArg);
+                    }
+                    else if (namedArg.Name == "SizeConst")
+                    {
+                        Enforce.Data(!sizeConst.HasValue);
+                        sizeConst = Enforce.NamedAttrAs<int>(namedArg);
+                    }
+                    else
+                    {
+                        Violation.Data();
+                    }
+                }
+
+                return new CustomAttr.NativeTypeInfo(
+                    unmanagedType: unmanagedType,
+                    isNullTerminated: isNullTerminated,
+                    isNullNullTerminated: isNullNullTerminated,
+                    sizeParamIndex: sizeParamIndex,
+                    arraySubType: arraySubType,
+                    sizeConst: sizeConst);
             }
 
             if (attrName == new NamespaceAndName("System", "ObsoleteAttribute"))
@@ -680,14 +741,21 @@ namespace JsonWin32Generator
             {
                 Enforce.AttrFixedArgCount(attrName, attrArgs, 0);
                 Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
-                return new CustomAttr.NativeTypedef();
+                return CustomAttr.NativeTypedef.Instance;
             }
 
             if (attrName == new NamespaceAndName("System.Runtime.InteropServices", "UnmanagedFunctionPointerAttribute"))
             {
                 Enforce.AttrFixedArgCount(attrName, attrArgs, 1);
                 Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
-                return new CustomAttr.UnmanagedFunctionPointer();
+                return CustomAttr.UnmanagedFunctionPointer.Instance;
+            }
+
+            if (attrName == new NamespaceAndName("Windows.Win32.Interop", "ComOutPtrAttribute"))
+            {
+                Enforce.AttrFixedArgCount(attrName, attrArgs, 0);
+                Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
+                return CustomAttr.ComOutPtr.Instance;
             }
 
             throw new NotImplementedException(Fmt.In($"unhandled custom attribute \"{attrName.Namespace}\", \"{attrName.Name}\""));

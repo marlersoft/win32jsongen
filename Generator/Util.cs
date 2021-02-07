@@ -92,6 +92,10 @@ namespace JsonWin32Generator
             return false;
         }
 
+        internal static string Json(this bool value) => value ? "true" : "false";
+
+        internal static string JsonString<T>(this T? value) => (value == null) ? "null" : Fmt.In($"\"{value}\"");
+
         internal static string ReadConstValue(this Constant constant, MetadataReader mr)
         {
             Enforce.Invariant(!constant.Value.IsNil);
@@ -102,7 +106,7 @@ namespace JsonWin32Generator
         {
             return code switch
             {
-                ConstantTypeCode.Boolean => blobReader.ReadBoolean() ? "true" : "false",
+                ConstantTypeCode.Boolean => blobReader.ReadBoolean().Json(),
                 ConstantTypeCode.Char => Fmt.In($"'{blobReader.ReadChar()}'"),
                 ConstantTypeCode.SByte => Fmt.In($"{blobReader.ReadSByte()}"),
                 ConstantTypeCode.Byte => Fmt.In($"{blobReader.ReadByte()}"),
@@ -225,14 +229,15 @@ namespace JsonWin32Generator
             throw new InvalidDataException(Fmt.In($"expected attribute value to be an UnmanagedType enum value, but got '{attr_value}'"));
         }
 
-        internal static bool AttrNamedAsBool(CustomAttributeNamedArgument<CustomAttrType> attr_value)
+        internal static T NamedAttrAs<T>(CustomAttributeNamedArgument<CustomAttrType> attr_value)
         {
-            if (object.ReferenceEquals(attr_value.Type, CustomAttrType.Bool.Instance))
+            CustomAttrType expectedType = CustomAttrType.ToCustomAttrType(typeof(T));
+            if (object.ReferenceEquals(attr_value.Type, expectedType))
             {
-                return (bool)attr_value.Value!;
+                return (T)attr_value.Value!;
             }
 
-            throw new InvalidDataException(Fmt.In($"expected attribute value to be an bool, but got '{attr_value}'"));
+            throw new InvalidDataException(Fmt.In($"expected attribute value to be {expectedType}, but got '{attr_value.Type}'"));
         }
     }
 }
