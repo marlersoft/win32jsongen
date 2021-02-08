@@ -228,5 +228,14 @@ namespace JsonWin32Generator
             {
             }
         }
+
+        internal class GuidConstAttribute : CustomAttr
+        {
+            internal static readonly GuidConstAttribute Instance = new GuidConstAttribute();
+
+            private GuidConstAttribute()
+            {
+            }
+        }
     }
 }

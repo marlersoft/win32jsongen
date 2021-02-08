@@ -242,6 +242,8 @@ namespace JsonWin32Generator
 
             List<string> jsonAttributes = new List<string>();
 
+            bool isGuidConst = false;
+
             // TODO: what is fieldDef.GetMarshallingDescriptor?
             foreach (CustomAttributeHandle attrHandle in fieldDef.GetCustomAttributes())
             {
@@ -260,6 +262,10 @@ namespace JsonWin32Generator
                 {
                     jsonAttributes.Add(Fmt.In($"{{\"Kind\":\"Obsolete\",\"Message\":\"{obsolete.Message}\"}}"));
                 }
+                else if (attr is CustomAttr.GuidConstAttribute guidConstAttr)
+                {
+                    isGuidConst = true;
+                }
                 else
                 {
                     Violation.Data();
@@ -270,7 +276,15 @@ namespace JsonWin32Generator
             Constant constant = this.mr.GetConstant(fieldDef.GetDefaultValue());
             string value = constant.ReadConstValue(this.mr);
             writer.WriteLine("\"Name\":\"{0}\"", name);
-            writer.WriteLine(",\"NativeType\":\"{0}\"", constant.TypeCode.ToPrimitiveTypeCode());
+            if (isGuidConst)
+            {
+                Enforce.Data(constant.TypeCode == ConstantTypeCode.String);
+                writer.WriteLine(",\"NativeType\":\"Guid\"");
+            }
+            else
+            {
+                writer.WriteLine(",\"NativeType\":\"{0}\"", constant.TypeCode.ToPrimitiveTypeCode());
+            }
             writer.WriteLine(",\"Value\":{0}", value);
             WriteJsonArray(writer, ",\"Attrs\":", jsonAttributes, string.Empty);
         }
@@ -838,6 +852,13 @@ namespace JsonWin32Generator
                 Enforce.AttrFixedArgCount(attrName, attrArgs, 0);
                 Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
                 return CustomAttr.ComOutPtr.Instance;
+            }
+
+            if (attrName == new NamespaceAndName("Windows.Win32.Interop", "GuidConstAttribute"))
+            {
+                Enforce.AttrFixedArgCount(attrName, attrArgs, 0);
+                Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
+                return CustomAttr.GuidConstAttribute.Instance;
             }
 
             throw new NotImplementedException(Fmt.In($"unhandled custom attribute \"{attrName.Namespace}\", \"{attrName.Name}\""));
