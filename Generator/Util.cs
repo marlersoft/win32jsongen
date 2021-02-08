@@ -211,7 +211,7 @@ namespace JsonWin32Generator
 
         internal static string AttrFixedArgAsString(CustomAttributeTypedArgument<CustomAttrType> attr_value)
         {
-            if (object.ReferenceEquals(attr_value.Type, CustomAttrType.Str.Instance))
+            if (object.ReferenceEquals(attr_value.Type, CustomAttrType.Str))
             {
                 return (string)attr_value.Value!;
             }
@@ -221,7 +221,7 @@ namespace JsonWin32Generator
 
         internal static UnmanagedType AttrFixedArgAsUnmanagedType(CustomAttributeTypedArgument<CustomAttrType> attr_value)
         {
-            if (object.ReferenceEquals(attr_value.Type, CustomAttrType.UnmanagedType.Instance))
+            if (object.ReferenceEquals(attr_value.Type, CustomAttrType.UnmanagedType))
             {
                 return (UnmanagedType)attr_value.Value!;
             }
@@ -237,7 +237,7 @@ namespace JsonWin32Generator
                 return (T)attr_value.Value!;
             }
 
-            throw new InvalidDataException(Fmt.In($"expected attribute value to be {expectedType}, but got '{attr_value.Type}'"));
+            throw new InvalidDataException(Fmt.In($"expected attribute value to be '{expectedType}', but got '{attr_value.Type}'"));
         }
     }
 }

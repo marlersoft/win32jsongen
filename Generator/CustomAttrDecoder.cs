@@ -23,28 +23,28 @@ namespace JsonWin32Generator
         {
             if (code == PrimitiveTypeCode.Boolean)
             {
-                return CustomAttrType.Bool.Instance;
+                return CustomAttrType.Bool;
             }
 
             if (code == PrimitiveTypeCode.String)
             {
-                return CustomAttrType.Str.Instance;
+                return CustomAttrType.Str;
             }
 
             if (code == PrimitiveTypeCode.Int16)
             {
-                return CustomAttrType.Int16.Instance;
+                return CustomAttrType.Int16;
             }
 
             if (code == PrimitiveTypeCode.Int32)
             {
-                return CustomAttrType.Int32.Instance;
+                return CustomAttrType.Int32;
             }
 
             throw new NotImplementedException("Only string and bool primitive types have been implemented for custom attributes");
         }
 
-        public CustomAttrType GetSystemType() => CustomAttrType.SystemType.Instance;
+        public CustomAttrType GetSystemType() => CustomAttrType.SystemType;
 
         public CustomAttrType GetSZArrayType(CustomAttrType elementType) => throw new NotImplementedException();
 
@@ -59,12 +59,12 @@ namespace JsonWin32Generator
             {
                 if (name == "CallingConvention")
                 {
-                    return CustomAttrType.CallConv.Instance;
+                    return CustomAttrType.CallConv;
                 }
 
                 if (name == "UnmanagedType")
                 {
-                    return CustomAttrType.UnmanagedType.Instance;
+                    return CustomAttrType.UnmanagedType;
                 }
             }
 
@@ -75,7 +75,7 @@ namespace JsonWin32Generator
         {
             if (name == "System.Runtime.InteropServices.UnmanagedType")
             {
-                return CustomAttrType.UnmanagedType.Instance;
+                return CustomAttrType.UnmanagedType;
             }
 
             throw new NotImplementedException();
@@ -83,12 +83,12 @@ namespace JsonWin32Generator
 
         public PrimitiveTypeCode GetUnderlyingEnumType(CustomAttrType type)
         {
-            if (object.ReferenceEquals(type, CustomAttrType.CallConv.Instance))
+            if (object.ReferenceEquals(type, CustomAttrType.CallConv))
             {
                 return PrimitiveTypeCode.Int32; // !!!!!!!! TODO: is this right???? What is this doing???
             }
 
-            if (object.ReferenceEquals(type, CustomAttrType.UnmanagedType.Instance))
+            if (object.ReferenceEquals(type, CustomAttrType.UnmanagedType))
             {
                 return PrimitiveTypeCode.Int32; // !!!!!!!! TODO: is this right???? What is this doing???
             }
@@ -96,80 +96,43 @@ namespace JsonWin32Generator
             throw new NotImplementedException();
         }
 
-        public bool IsSystemType(CustomAttrType type) => object.ReferenceEquals(type, CustomAttrType.SystemType.Instance);
+        public bool IsSystemType(CustomAttrType type) => object.ReferenceEquals(type, CustomAttrType.SystemType);
     }
 
-    internal abstract class CustomAttrType
+    internal class CustomAttrType
     {
-        private static readonly Dictionary<Type, CustomAttrType> PrimitiveToCustomAttrTypeMap = new Dictionary<Type, CustomAttrType>();
+        internal static readonly CustomAttrType Bool = new CustomAttrType();
+
+        internal static readonly CustomAttrType Int16 = new CustomAttrType();
+
+        internal static readonly CustomAttrType Int32 = new CustomAttrType();
+
+        internal static readonly CustomAttrType UnmanagedType = new CustomAttrType();
+
+        internal static readonly CustomAttrType CallConv = new CustomAttrType();
+
+        internal static readonly CustomAttrType SystemType = new CustomAttrType();
+
+        internal static readonly CustomAttrType Str = new CustomAttrType();
+
+        private static readonly Dictionary<Type, CustomAttrType> ClrTypeToCustomAttrTypeMap = new Dictionary<Type, CustomAttrType>();
 
         static CustomAttrType()
         {
-            PrimitiveToCustomAttrTypeMap.Add(typeof(bool), CustomAttrType.Bool.Instance);
-            PrimitiveToCustomAttrTypeMap.Add(typeof(short), CustomAttrType.Int16.Instance);
-            PrimitiveToCustomAttrTypeMap.Add(typeof(int), CustomAttrType.Int32.Instance);
-            PrimitiveToCustomAttrTypeMap.Add(typeof(System.Runtime.InteropServices.UnmanagedType), CustomAttrType.UnmanagedType.Instance);
+            ClrTypeToCustomAttrTypeMap.Add(typeof(bool), Bool);
+            ClrTypeToCustomAttrTypeMap.Add(typeof(short), Int16);
+            ClrTypeToCustomAttrTypeMap.Add(typeof(int), Int32);
+            ClrTypeToCustomAttrTypeMap.Add(typeof(System.Runtime.InteropServices.UnmanagedType), UnmanagedType);
         }
 
         internal static CustomAttrType ToCustomAttrType(Type type)
         {
-            if (PrimitiveToCustomAttrTypeMap.TryGetValue(type, out CustomAttrType? result))
+            if (ClrTypeToCustomAttrTypeMap.TryGetValue(type, out CustomAttrType? result))
             {
                 return result;
             }
 
             throw new ArgumentException(Fmt.In($"converting type '{type}' to a CustomAttrType is not implemented"));
-        }
-
-        internal abstract string FormatValue(object? value);
-
-        internal class Bool : CustomAttrType
-        {
-            internal static readonly Bool Instance = new Bool();
-
-            internal override string FormatValue(object? value) => Fmt.In($"Bool({value})");
-        }
-
-        internal class Int16 : CustomAttrType
-        {
-            internal static readonly Int16 Instance = new Int16();
-
-            internal override string FormatValue(object? value) => Fmt.In($"Int16({value})");
-        }
-
-        internal class Int32 : CustomAttrType
-        {
-            internal static readonly Int32 Instance = new Int32();
-
-            internal override string FormatValue(object? value) => Fmt.In($"Int32({value})");
-        }
-
-        internal class CallConv : CustomAttrType
-        {
-            internal static readonly CallConv Instance = new CallConv();
-
-            internal override string FormatValue(object? value) => Fmt.In($"CallConv({(CallingConvention)value!})");
-        }
-
-        internal class SystemType : CustomAttrType
-        {
-            internal static readonly SystemType Instance = new SystemType();
-
-            internal override string FormatValue(object? value) => Fmt.In($"Type({value})");
-        }
-
-        internal class Str : CustomAttrType
-        {
-            internal static readonly Str Instance = new Str();
-
-            internal override string FormatValue(object? value) => Fmt.In($"String({value})");
-        }
-
-        internal class UnmanagedType : CustomAttrType
-        {
-            internal static readonly UnmanagedType Instance = new UnmanagedType();
-
-            internal override string FormatValue(object? value) => Fmt.In($"UnmanagedType({value})");
         }
     }
 

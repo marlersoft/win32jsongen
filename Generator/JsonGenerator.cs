@@ -189,7 +189,7 @@ namespace JsonWin32Generator
                 foreach (MethodDefinitionHandle funcHandle in api.Funcs)
                 {
                     writer.Tab();
-                    var funcName = this.GenerateFunc(writer, fieldPrefix, funcHandle, false);
+                    var funcName = this.GenerateFunc(writer, fieldPrefix, funcHandle);
                     writer.Untab();
                     fieldPrefix = ",";
                     unicodeSet.RegisterTopLevelSymbol(funcName);
@@ -534,10 +534,10 @@ namespace JsonWin32Generator
                 }
             }
             Enforce.Data(funcMethodHandle != null);
-            this.GenerateFuncCommon(writer, funcMethodHandle.Value, true);
+            this.GenerateFuncCommon(writer, funcMethodHandle!.Value, true);
         }
 
-        private string GenerateFunc(TabWriter writer, string funcFieldPrefix, MethodDefinitionHandle funcHandle, bool isFuncPtr)
+        private string GenerateFunc(TabWriter writer, string funcFieldPrefix, MethodDefinitionHandle funcHandle)
         {
             writer.WriteLine("{0}{{", funcFieldPrefix);
             writer.Tab();
