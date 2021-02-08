@@ -7,11 +7,7 @@ namespace JsonWin32Generator
     using System;
     using System.Collections.Generic;
     using System.Collections.Immutable;
-    using System.Diagnostics;
-    using System.Globalization;
-    using System.IO;
     using System.Reflection.Metadata;
-    using System.Text;
 
     // Implements the ISignatureTypeProvider interface used as a callback by MetadataReader to create objects that represent types.
     internal class TypeRefDecoder : ISignatureTypeProvider<TypeRef, INothing?>
@@ -25,62 +21,31 @@ namespace JsonWin32Generator
             this.typeMap = typeMap;
         }
 
-        public TypeRef GetArrayType(TypeRef from, ArrayShape shape)
-        {
-            return new TypeRef.ArrayOf(from, shape);
-        }
+        public TypeRef GetArrayType(TypeRef from, ArrayShape shape) => new TypeRef.ArrayOf(from, shape);
+
+        public TypeRef GetPointerType(TypeRef from) => new TypeRef.PointerTo(from);
+
+        public TypeRef GetPrimitiveType(PrimitiveTypeCode typeCode) => TypeRef.Primitive.Get(typeCode);
+
+        public TypeRef GetTypeFromDefinition(MetadataReader mr, TypeDefinitionHandle handle, byte rawTypeKind) => new TypeRef.User(this.typeMap[handle]);
 
         public TypeRef GetByReferenceType(TypeRef from) => throw Violation.Data();
 
-        public TypeRef GetFunctionPointerType(MethodSignature<TypeRef> signature)
-        {
-            throw new NotImplementedException();
-        }
+        public TypeRef GetFunctionPointerType(MethodSignature<TypeRef> signature) => throw Violation.Data();
 
-        public TypeRef GetGenericInstantiation(TypeRef genericType, ImmutableArray<TypeRef> typeArguments)
-        {
-            throw new NotImplementedException();
-        }
+        public TypeRef GetGenericInstantiation(TypeRef genericType, ImmutableArray<TypeRef> typeArguments) => throw Violation.Data();
 
-        public TypeRef GetGenericMethodParameter(INothing? genericContext, int index)
-        {
-            throw new NotImplementedException();
-        }
+        public TypeRef GetGenericMethodParameter(INothing? genericContext, int index) => throw Violation.Data();
 
-        public TypeRef GetGenericTypeParameter(INothing? genericContext, int index)
-        {
-            throw new NotImplementedException();
-        }
+        public TypeRef GetGenericTypeParameter(INothing? genericContext, int index) => throw Violation.Data();
 
-        public TypeRef GetModifiedType(TypeRef modifier, TypeRef unmodifiedType, bool isRequired)
-        {
-            throw new NotImplementedException();
-        }
+        public TypeRef GetModifiedType(TypeRef modifier, TypeRef unmodifiedType, bool isRequired) => throw Violation.Data();
 
-        public TypeRef GetPinnedType(TypeRef elementType)
-        {
-            throw new NotImplementedException();
-        }
+        public TypeRef GetPinnedType(TypeRef elementType) => throw Violation.Data();
 
-        public TypeRef GetPointerType(TypeRef from)
-        {
-            return new TypeRef.PointerTo(from);
-        }
+        public TypeRef GetSZArrayType(TypeRef elementType) => throw Violation.Data();
 
-        public TypeRef GetPrimitiveType(PrimitiveTypeCode typeCode)
-        {
-            return TypeRef.Primitive.Get(typeCode);
-        }
-
-        public TypeRef GetSZArrayType(TypeRef elementType)
-        {
-            throw new NotImplementedException();
-        }
-
-        public TypeRef GetTypeFromDefinition(MetadataReader mr, TypeDefinitionHandle handle, byte rawTypeKind)
-        {
-            return new TypeRef.User(this.typeMap[handle]);
-        }
+        public TypeRef GetTypeFromSpecification(MetadataReader mr, INothing? genericContext, TypeSpecificationHandle handle, byte rawTypeKind) => throw Violation.Data();
 
         public TypeRef GetTypeFromReference(MetadataReader mr, TypeReferenceHandle handle, byte rawTypeKind)
         {
@@ -124,11 +89,6 @@ namespace JsonWin32Generator
             }
 
             throw Violation.Data(Fmt.In($"unhandled typeRef.ResolutionScope.Kind {typeRef.ResolutionScope.Kind}"));
-        }
-
-        public TypeRef GetTypeFromSpecification(MetadataReader mr, INothing? genericContext, TypeSpecificationHandle handle, byte rawTypeKind)
-        {
-            throw new NotImplementedException();
         }
 
         private TypeGenInfo ResolveEnclosingType(MetadataReader mr, TypeReferenceHandle typeRefHandle)
