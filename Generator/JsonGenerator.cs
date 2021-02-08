@@ -476,6 +476,7 @@ namespace JsonWin32Generator
             {
                 FieldDefinition fieldDef = this.mr.GetFieldDefinition(fieldDefHandle);
                 string fieldName = this.mr.GetString(fieldDef.Name);
+                Enforce.Data(fieldDef.GetRelativeVirtualAddress() == 0);
                 if (fieldDef.Attributes == (FieldAttributes.Public | FieldAttributes.Static | FieldAttributes.Literal | FieldAttributes.HasDefault))
                 {
                     // I'm not sure whether the metadata intended to put constants inside types like this or if they
@@ -486,18 +487,44 @@ namespace JsonWin32Generator
                     Enforce.Data(typeInfo.Name == "WSDXML_NODE" || typeInfo.Name == "WhitePoint");
                     Enforce.Data(fieldDef.GetCustomAttributes().Count == 0);
                     Enforce.Data(fieldDef.GetOffset() == -1);
-                    Enforce.Data(fieldDef.GetRelativeVirtualAddress() == 0);
                     Constant constant = this.mr.GetConstant(fieldDef.GetDefaultValue());
                     string value = constant.ReadConstValue(this.mr);
                     constFields.Add(Fmt.In($"{constant.TypeCode} {fieldName} = {value}"));
+                    continue;
                 }
-                else
+
+                Enforce.Data(fieldDef.Attributes == FieldAttributes.Public);
+
+                // TODO: verify fieldDef.GetOffset()?
+                TypeRef fieldType = fieldDef.DecodeSignature(this.typeRefDecoder, null);
+                List<string> jsonAttributes = new List<string>();
+                foreach (CustomAttributeHandle attrHandle in fieldDef.GetCustomAttributes())
                 {
-                    Enforce.Data(fieldDef.Attributes == FieldAttributes.Public);
-                    string fieldTypeJson = fieldDef.DecodeSignature(this.typeRefDecoder, null).ToJson();
-                    writer.WriteLine("{0}{{\"Name\":\"{1}\",\"Type\":{2}}}", fieldElemPrefix, fieldName, fieldTypeJson);
-                    fieldElemPrefix = ",";
+                    CustomAttr attr = this.DecodeCustomAttr(attrHandle);
+                    if (object.ReferenceEquals(attr, CustomAttr.Const.Instance))
+                    {
+                        jsonAttributes.Add("\"Const\"");
+                    }
+                    else if (attr is CustomAttr.NativeTypeInfo nativeTypeInfo)
+                    {
+                        if (nativeTypeInfo.UnmanagedType == UnmanagedType.LPArray)
+                        {
+                            fieldType = new TypeRef.LPArray(nativeTypeInfo, fieldType);
+                        }
+                        else
+                        {
+                            fieldType = new TypeRef.LPStr(nativeTypeInfo, fieldType);
+                        }
+                    }
+                    else
+                    {
+                        Violation.Data();
+                    }
                 }
+                string attrs = string.Join(",", jsonAttributes);
+                string fieldTypeJson = fieldType.ToJson();
+                writer.WriteLine("{0}{{\"Name\":\"{1}\",\"Type\":{2},\"Attrs\":[{3}]}}", fieldElemPrefix, fieldName, fieldTypeJson, attrs);
+                fieldElemPrefix = ",";
             }
             writer.Untab();
             writer.WriteLine("]");
