@@ -30,10 +30,7 @@ namespace JsonWin32Generator
             return new TypeRef.ArrayOf(from, shape);
         }
 
-        public TypeRef GetByReferenceType(TypeRef from)
-        {
-            return new TypeRef.RefOf(from);
-        }
+        public TypeRef GetByReferenceType(TypeRef from) => throw Violation.Data();
 
         public TypeRef GetFunctionPointerType(MethodSignature<TypeRef> signature)
         {

@@ -65,24 +65,6 @@ namespace JsonWin32Generator
             }
         }
 
-        internal class RefOf : TypeRef
-        {
-            internal RefOf(TypeRef childType)
-            {
-                this.ChildType = childType;
-            }
-
-            internal TypeRef ChildType { get; }
-
-            internal override void FormatTypeJson(StringBuilder builder)
-            {
-                // TODO: include more information for ref type
-                builder.Append("{\"Kind\":\"ReferenceTo\",\"Child\":");
-                this.ChildType.FormatTypeJson(builder);
-                builder.Append('}');
-            }
-        }
-
         internal class PointerTo : TypeRef
         {
             internal PointerTo(TypeRef childType)
