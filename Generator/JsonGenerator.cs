@@ -189,7 +189,7 @@ namespace JsonWin32Generator
                 foreach (MethodDefinitionHandle funcHandle in api.Funcs)
                 {
                     writer.Tab();
-                    var funcName = this.GenerateFunc(writer, fieldPrefix, funcHandle);
+                    var funcName = this.GenerateFunc(writer, fieldPrefix, funcHandle, false);
                     writer.Untab();
                     fieldPrefix = ",";
                     unicodeSet.RegisterTopLevelSymbol(funcName);
@@ -451,17 +451,6 @@ namespace JsonWin32Generator
             Enforce.Data(typeInfo.NestedTypeCount == 0);
         }
 
-        private void GenerateFunctionPointer(TabWriter writer, TypeGenInfo typeInfo)
-        {
-            writer.WriteLine(",\"Kind\":\"FunctionPointer\"");
-            writer.WriteLine(",\"Comment\":\"TODO: implement function pointer type\"");
-            Enforce.Data(typeInfo.Def.GetFields().Count == 0);
-            Enforce.Data(typeInfo.NestedTypeCount == 0);
-            Enforce.Data(typeInfo.Def.GetMethods().Count == 2);
-
-            // TODO: enforce that the 2 methods are .ctor and Invoke
-        }
-
         private void GenerateStruct(TabWriter writer, TypeGenInfo typeInfo, TypeLayoutKind layoutKind)
         {
             string kind;
@@ -523,7 +512,32 @@ namespace JsonWin32Generator
             this.GenerateNestedTypes(writer, typeInfo);
         }
 
-        private string GenerateFunc(TabWriter writer, string funcFieldPrefix, MethodDefinitionHandle funcHandle)
+        private void GenerateFunctionPointer(TabWriter writer, TypeGenInfo typeInfo)
+        {
+            Enforce.Data(typeInfo.Def.GetFields().Count == 0);
+            Enforce.Data(typeInfo.NestedTypeCount == 0);
+            Enforce.Data(typeInfo.Def.GetMethods().Count == 2);
+
+            bool firstMethod = true;
+            MethodDefinitionHandle? funcMethodHandle = null;
+            foreach (MethodDefinitionHandle methodHandle in typeInfo.Def.GetMethods())
+            {
+                if (firstMethod)
+                {
+                    firstMethod = false;
+                    Enforce.Data(this.mr.GetString(this.mr.GetMethodDefinition(methodHandle).Name) == ".ctor");
+                }
+                else
+                {
+                    Enforce.Data(funcMethodHandle == null);
+                    funcMethodHandle = methodHandle;
+                }
+            }
+            Enforce.Data(funcMethodHandle != null);
+            this.GenerateFuncCommon(writer, funcMethodHandle.Value, true);
+        }
+
+        private string GenerateFunc(TabWriter writer, string funcFieldPrefix, MethodDefinitionHandle funcHandle, bool isFuncPtr)
         {
             writer.WriteLine("{0}{{", funcFieldPrefix);
             writer.Tab();
@@ -532,49 +546,90 @@ namespace JsonWin32Generator
                 writer.Untab();
                 writer.WriteLine("}");
             });
+            return this.GenerateFuncCommon(writer, funcHandle, false);
+        }
 
+        private string GenerateFuncCommon(TabWriter writer, MethodDefinitionHandle funcHandle, bool isFuncPtr)
+        {
             MethodDefinition funcDef = this.mr.GetMethodDefinition(funcHandle);
-            string funcName = this.mr.GetString(funcDef.Name);
-            writer.WriteLine("\"Name\":\"{0}\"", funcName);
+            string funcName = string.Empty;
+            if (isFuncPtr)
+            {
+                writer.WriteLine(",\"Kind\":\"FunctionPointer\"");
+            }
+            else
+            {
+                funcName = this.mr.GetString(funcDef.Name);
+                writer.WriteLine("\"Name\":\"{0}\"", funcName);
+            }
 
             // Looks like right now all the functions have these same attributes
             var decodedAttrs = new DecodedMethodAttributes(funcDef.Attributes);
             Enforce.Data(decodedAttrs.MemberAccess == MemberAccess.Public);
-            Enforce.Data(decodedAttrs.IsStatic);
+            if (isFuncPtr)
+            {
+                Enforce.Data(!decodedAttrs.IsStatic);
+                Enforce.Data(decodedAttrs.IsVirtual);
+                Enforce.Data(!decodedAttrs.PInvokeImpl);
+                Enforce.Data(decodedAttrs.NewSlot);
+                Enforce.Data(funcDef.ImplAttributes == MethodImplAttributes.CodeTypeMask);
+            }
+            else
+            {
+                Enforce.Data(decodedAttrs.IsStatic);
+                Enforce.Data(!decodedAttrs.IsVirtual);
+                Enforce.Data(decodedAttrs.PInvokeImpl);
+                Enforce.Data(!decodedAttrs.NewSlot);
+                Enforce.Data(funcDef.ImplAttributes == MethodImplAttributes.PreserveSig);
+            }
             Enforce.Data(!decodedAttrs.IsFinal);
-            Enforce.Data(!decodedAttrs.IsVirtual);
             Enforce.Data(!decodedAttrs.IsAbstract);
-            Enforce.Data(decodedAttrs.PInvokeImpl);
             Enforce.Data(decodedAttrs.HideBySig);
-            Enforce.Data(!decodedAttrs.NewSlot);
             Enforce.Data(!decodedAttrs.SpecialName);
             Enforce.Data(!decodedAttrs.CheckAccessOnOverride);
             Enforce.Data(funcDef.GetCustomAttributes().Count == 0);
             Enforce.Data(funcDef.GetDeclarativeSecurityAttributes().Count == 0);
-            Enforce.Data(funcDef.ImplAttributes == MethodImplAttributes.PreserveSig);
 
             MethodImport methodImport = funcDef.GetImport();
             var methodImportAttrs = new DecodedMethodImportAttributes(methodImport.Attributes);
-            Enforce.Data(methodImportAttrs.ExactSpelling);
             Enforce.Data(methodImportAttrs.CharSet == CharSet.None);
             Enforce.Data(methodImportAttrs.BestFit == null);
-            Enforce.Data(methodImportAttrs.CallConv == CallConv.Winapi);
             Enforce.Data(methodImportAttrs.ThrowOnUnmapableChar == null);
-
-            Enforce.Data(this.mr.GetString(methodImport.Name) == funcName);
+            if (isFuncPtr)
+            {
+                Enforce.Data(!methodImportAttrs.ExactSpelling);
+                Enforce.Data(methodImportAttrs.CallConv == CallConv.None);
+                Enforce.Data(this.mr.GetString(methodImport.Name).Length == 0);
+            }
+            else
+            {
+                Enforce.Data(methodImportAttrs.ExactSpelling);
+                Enforce.Data(methodImportAttrs.CallConv == CallConv.Winapi);
+                Enforce.Data(this.mr.GetString(methodImport.Name) == funcName);
+            }
 
             ModuleReference moduleRef = this.mr.GetModuleReference(methodImport.Module);
             Enforce.Data(moduleRef.GetCustomAttributes().Count == 0);
-            string importName = this.mr.GetString(moduleRef.Name);
+            string importName = isFuncPtr ? string.Empty : this.mr.GetString(moduleRef.Name);
 
             MethodSignature<TypeRef> methodSig = funcDef.DecodeSignature(this.typeRefDecoder, null);
 
             Enforce.Data(methodSig.Header.Kind == SignatureKind.Method);
             Enforce.Data(methodSig.Header.CallingConvention == SignatureCallingConvention.Default);
-            Enforce.Data(methodSig.Header.Attributes == SignatureAttributes.None);
+            if (isFuncPtr)
+            {
+                Enforce.Data(methodSig.Header.Attributes == SignatureAttributes.Instance);
+            }
+            else
+            {
+                Enforce.Data(methodSig.Header.Attributes == SignatureAttributes.None);
+            }
 
             writer.WriteLine(",\"SetLastError\":{0}", methodImportAttrs.SetLastError.Json());
-            writer.WriteLine(",\"DllImport\":\"{0}\"", importName);
+            if (!isFuncPtr)
+            {
+                writer.WriteLine(",\"DllImport\":\"{0}\"", importName);
+            }
             writer.WriteLine(",\"ReturnType\":{0}", methodSig.ReturnType.ToJson());
             writer.WriteLine(",\"Params\":[");
             writer.Tab();

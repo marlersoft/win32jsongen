@@ -31,6 +31,7 @@ namespace JsonWin32Generator
 
     internal enum CallConv
     {
+        None,
         Winapi,
         CDecl,
         Stdcall,
@@ -180,6 +181,7 @@ namespace JsonWin32Generator
     //
     //     #    | Name                      |
     //     -----| --------------------------|
+    //        0 | None                      |
     //      256 | CallingConventionWinApi   |
     //      512 | CallingConventionCDecl    |
     //      768 | CallingConventionStdCall  |
@@ -240,6 +242,7 @@ namespace JsonWin32Generator
                 MethodImportAttributes call_conv_attr = attrs & MethodImportAttributes.CallingConventionMask;
                 this.CallConv = call_conv_attr switch
                 {
+                    MethodImportAttributes.None => CallConv.None,
                     MethodImportAttributes.CallingConventionWinApi => CallConv.Winapi,
                     MethodImportAttributes.CallingConventionCDecl => CallConv.CDecl,
                     MethodImportAttributes.CallingConventionStdCall => CallConv.Stdcall,
