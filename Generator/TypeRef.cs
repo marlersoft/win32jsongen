@@ -57,9 +57,20 @@ namespace JsonWin32Generator
 
             internal override void FormatTypeJson(StringBuilder builder)
             {
-                // TODO: can the array pointer be null?  for now I'm assuming all can.
-                // TODO: take ArrayShape into account
-                builder.Append("{\"Kind\":\"Array\",\"Child\":");
+                string shape = "null";
+                Enforce.Data(this.Shape.Rank == 1);
+                Enforce.Data(this.Shape.LowerBounds.Length == 1);
+                Enforce.Data(this.Shape.Sizes.Length == 1);
+                int size = this.Shape.Sizes[0];
+                if (size != 1)
+                {
+                    shape = Fmt.In($"{{\"Size\":{size}}}");
+                }
+
+                builder.AppendFormat(
+                    CultureInfo.InvariantCulture,
+                    "{{\"Kind\":\"Array\",\"Shape\":{0},\"Child\":",
+                    shape);
                 this.ElementType.FormatTypeJson(builder);
                 builder.Append('}');
             }
