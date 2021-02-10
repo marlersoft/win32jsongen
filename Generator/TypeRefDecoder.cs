@@ -47,7 +47,9 @@ namespace JsonWin32Generator
 
         public TypeRef GetTypeFromSpecification(MetadataReader mr, INothing? genericContext, TypeSpecificationHandle handle, byte rawTypeKind) => throw Violation.Data();
 
-        public TypeRef GetTypeFromReference(MetadataReader mr, TypeReferenceHandle handle, byte rawTypeKind)
+        public TypeRef GetTypeFromReference(MetadataReader mr, TypeReferenceHandle handle, byte rawTypeKind) => this.GetTypeFromReference(mr, handle);
+
+        public TypeRef GetTypeFromReference(MetadataReader mr, TypeReferenceHandle handle)
         {
             var typeRef = mr.GetTypeReference(handle);
             var @namespace = mr.GetString(typeRef.Namespace);
@@ -67,7 +69,6 @@ namespace JsonWin32Generator
             }
             else if (typeRef.ResolutionScope.Kind == HandleKind.AssemblyReference)
             {
-                // This occurs for System.Guid, not sure if it is supposed to
                 if (@namespace == "System")
                 {
                     if (name == "Guid")
@@ -80,6 +81,49 @@ namespace JsonWin32Generator
                     // Looks like this may be defined in another metadata binary?
                     //    https://github.com/microsoft/win32metadata/issues/126
                     if (name == "DispatcherQueueController")
+                    {
+                        return new TypeRef.MissingClrType(@namespace, name);
+                    }
+                }
+                else if (@namespace == "Windows.Foundation")
+                {
+                    if (name == "IPropertyValue")
+                    {
+                        return new TypeRef.MissingClrType(@namespace, name);
+                    }
+                }
+                else if (@namespace == "Windows.Graphics.Effects")
+                {
+                    if (name == "IGraphicsEffectSource")
+                    {
+                        return new TypeRef.MissingClrType(@namespace, name);
+                    }
+                }
+                else if (@namespace == "Windows.UI.Composition")
+                {
+                    if (name == "ICompositionSurface")
+                    {
+                        return new TypeRef.MissingClrType(@namespace, name);
+                    }
+
+                    if (name == "CompositionGraphicsDevice")
+                    {
+                        return new TypeRef.MissingClrType(@namespace, name);
+                    }
+
+                    if (name == "CompositionCapabilities")
+                    {
+                        return new TypeRef.MissingClrType(@namespace, name);
+                    }
+
+                    if (name == "Compositor")
+                    {
+                        return new TypeRef.MissingClrType(@namespace, name);
+                    }
+                }
+                else if (@namespace == "Windows.UI.Composition.Desktop")
+                {
+                    if (name == "DesktopWindowTarget")
                     {
                         return new TypeRef.MissingClrType(@namespace, name);
                     }

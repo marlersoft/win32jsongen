@@ -112,6 +112,13 @@ namespace JsonWin32Generator
             this.typeRefDecoder = new TypeRefDecoder(this.apiNamespaceMap, this.typeMap);
         }
 
+        private enum FuncKind
+        {
+            Fixed,
+            Ptr,
+            Com,
+        }
+
         internal static void Generate(MetadataReader mr, string outDir)
         {
             JsonGenerator generator = new JsonGenerator(mr);
@@ -173,6 +180,15 @@ namespace JsonWin32Generator
                 string fieldPrefix = string.Empty;
                 foreach (TypeGenInfo typeInfo in api.TopLevelTypes)
                 {
+                    // COM type Windows.Win32.WindowsAccessibility.IUIAutomation6 has some methods
+                    // that reference a type that is not defined: ConnectionRecoveryBehaviorOptions
+                    // see https://github.com/microsoft/win32metadata/issues/127
+                    if (typeInfo.Fqn == "Windows.Win32.WindowsAccessibility.IUIAutomation6")
+                    {
+                        Console.WriteLine("Skipping '{0}' because of https://github.com/microsoft/win32metadata/issues/127", typeInfo.Fqn);
+                        continue;
+                    }
+
                     writer.Tab();
                     this.GenerateType(writer, fieldPrefix, typeInfo);
                     writer.Untab();
@@ -189,7 +205,7 @@ namespace JsonWin32Generator
                 foreach (MethodDefinitionHandle funcHandle in api.Funcs)
                 {
                     writer.Tab();
-                    var funcName = this.GenerateFunc(writer, fieldPrefix, funcHandle);
+                    var funcName = this.GenerateFunc(writer, fieldPrefix, funcHandle, FuncKind.Fixed);
                     writer.Untab();
                     fieldPrefix = ",";
                     unicodeSet.RegisterTopLevelSymbol(funcName);
@@ -317,7 +333,9 @@ namespace JsonWin32Generator
             Enforce.Data(typeInfo.Def.BaseType.IsNil == attrs.IsInterface);
             Enforce.Data(typeInfo.Def.BaseType.IsNil == attrs.IsAbstract);
 
-            List<string> jsonAttributes = new List<string>();
+            // TODO: do something with these attributes (they are no longer used)
+            string? guid = null;
+            string? freeFuncAttr = null;
             bool isNativeTypedef = false;
 
             foreach (CustomAttributeHandle attrHandle in typeInfo.Def.GetCustomAttributes())
@@ -325,11 +343,13 @@ namespace JsonWin32Generator
                 CustomAttr attr = this.DecodeCustomAttr(attrHandle);
                 if (attr is CustomAttr.Guid guidAttr)
                 {
-                    jsonAttributes.Add(Fmt.In($"{{\"Kind\":\"Guid\",\"Value\":\"{guidAttr.Value}\"}}"));
+                    Enforce.Data(guid == null);
+                    guid = guidAttr.Value;
                 }
                 else if (attr is CustomAttr.RaiiFree raiiAttr)
                 {
-                    jsonAttributes.Add(Fmt.In($"{{\"Kind\":\"RAIIFree\",\"FreeFunc\":\"{raiiAttr.FreeFunc}\"}}"));
+                    Enforce.Data(freeFuncAttr == null);
+                    freeFuncAttr = raiiAttr.FreeFunc;
                 }
                 else if (attr is CustomAttr.NativeTypedef)
                 {
@@ -353,6 +373,8 @@ namespace JsonWin32Generator
                 FieldDefinition targetDef = this.mr.GetFieldDefinition(typeInfo.Def.GetFields().First());
                 string targetDefJson = targetDef.DecodeSignature(this.typeRefDecoder, null).ToJson();
                 writer.WriteLine(",\"Def\":{0}", targetDefJson);
+                Enforce.Data(guid == null);
+                writer.WriteLine(",\"FreeFunc\":{0}", freeFuncAttr.JsonString());
                 Enforce.Data(typeInfo.Def.GetMethods().Count == 0);
                 Enforce.Data(typeInfo.NestedTypeCount == 0);
                 return;
@@ -360,7 +382,9 @@ namespace JsonWin32Generator
 
             if (typeInfo.Def.BaseType.IsNil)
             {
-                this.GenerateComType(writer, typeInfo);
+                Enforce.Data(attrs.Layout == TypeLayoutKind.Auto);
+                Enforce.Data(freeFuncAttr == null);
+                this.GenerateComType(writer, typeInfo, guid);
                 return;
             }
 
@@ -370,37 +394,27 @@ namespace JsonWin32Generator
             NamespaceAndName baseTypeNames = new NamespaceAndName(this.mr.GetString(baseTypeRef.Namespace), this.mr.GetString(baseTypeRef.Name));
             if (baseTypeNames == new NamespaceAndName("System", "Enum"))
             {
+                Enforce.Data(guid == null);
+                Enforce.Data(freeFuncAttr == null);
                 Enforce.Data(attrs.Layout == TypeLayoutKind.Auto);
                 this.GenerateEnum(writer, typeInfo);
             }
             else if (baseTypeNames == new NamespaceAndName("System", "ValueType"))
             {
-                this.GenerateStruct(writer, typeInfo, attrs.Layout);
+                Enforce.Data(freeFuncAttr == null);
+                this.GenerateStruct(writer, typeInfo, attrs.Layout, guid);
             }
             else if (baseTypeNames == new NamespaceAndName("System", "MulticastDelegate"))
             {
+                Enforce.Data(guid == null);
+                Enforce.Data(freeFuncAttr == null);
                 Enforce.Data(attrs.Layout == TypeLayoutKind.Auto);
                 this.GenerateFunctionPointer(writer, typeInfo);
             }
             else
             {
-                throw new InvalidOperationException();
+                throw Violation.Data();
             }
-        }
-
-        private void GenerateMethods(TabWriter writer, TypeGenInfo typeInfo)
-        {
-            writer.WriteLine(",\"Methods\":[");
-            writer.Tab();
-            string methodElementPrefix = string.Empty;
-            foreach (MethodDefinitionHandle methodDefHandle in typeInfo.Def.GetMethods())
-            {
-                MethodDefinition methodDef = this.mr.GetMethodDefinition(methodDefHandle);
-                writer.WriteLine("{0}\"TODO: Method '{1}'\"", methodElementPrefix, this.mr.GetString(methodDef.Name));
-                methodElementPrefix = ",";
-            }
-            writer.Untab();
-            writer.WriteLine("]");
         }
 
         private void GenerateNestedTypes(TabWriter writer, TypeGenInfo typeInfo)
@@ -417,13 +431,36 @@ namespace JsonWin32Generator
             writer.WriteLine("]");
         }
 
-        private void GenerateComType(TabWriter writer, TypeGenInfo typeInfo)
+        private void GenerateComType(TabWriter writer, TypeGenInfo typeInfo, string? guid)
         {
-            writer.WriteLine(",\"Kind\":\"Com\"");
-            writer.WriteLine(",\"Comment\":\"TODO: generate COM type info\"");
             Enforce.Data(typeInfo.Def.GetFields().Count == 0);
-            this.GenerateMethods(writer, typeInfo);
-            this.GenerateNestedTypes(writer, typeInfo);
+
+            writer.WriteLine(",\"Kind\":\"Com\"");
+            writer.WriteLine(",\"Guid\":{0}", guid.JsonString());
+
+            string interfaceJson = "null";
+            if (typeInfo.Def.GetInterfaceImplementations().Count != 0)
+            {
+                Enforce.Data(typeInfo.Def.GetInterfaceImplementations().Count == 1);
+                InterfaceImplementationHandle ifaceImplHandle = typeInfo.Def.GetInterfaceImplementations().First();
+                InterfaceImplementation ifaceImpl = this.mr.GetInterfaceImplementation(ifaceImplHandle);
+                Enforce.Data(ifaceImpl.GetCustomAttributes().Count == 0);
+                Enforce.Data(ifaceImpl.Interface.Kind == HandleKind.TypeReference);
+                TypeRef ifaceType = this.typeRefDecoder.GetTypeFromReference(this.mr, (TypeReferenceHandle)ifaceImpl.Interface);
+                interfaceJson = ifaceType.ToJson();
+            }
+            writer.WriteLine(",\"Interface\":{0}", interfaceJson);
+            writer.WriteLine(",\"Methods\":[");
+            writer.Tab();
+            string methodElementPrefix = string.Empty;
+            foreach (MethodDefinitionHandle methodDefHandle in typeInfo.Def.GetMethods())
+            {
+                this.GenerateFunc(writer, methodElementPrefix, methodDefHandle, FuncKind.Com);
+                methodElementPrefix = ",";
+            }
+            writer.Untab();
+            writer.WriteLine("]");
+            Enforce.Data(typeInfo.NestedTypeCount == 0);
         }
 
         private void GenerateEnum(TabWriter writer, TypeGenInfo typeInfo)
@@ -465,7 +502,7 @@ namespace JsonWin32Generator
             Enforce.Data(typeInfo.NestedTypeCount == 0);
         }
 
-        private void GenerateStruct(TabWriter writer, TypeGenInfo typeInfo, TypeLayoutKind layoutKind)
+        private void GenerateStruct(TabWriter writer, TypeGenInfo typeInfo, TypeLayoutKind layoutKind, string? guid)
         {
             string kind;
             if (layoutKind == TypeLayoutKind.Explicit)
@@ -542,6 +579,7 @@ namespace JsonWin32Generator
             }
             writer.Untab();
             writer.WriteLine("]");
+            writer.WriteLine(",\"Guid\":{0}", guid.JsonString());
             if (constFields.Count > 0)
             {
                 writer.WriteLine(
@@ -575,10 +613,10 @@ namespace JsonWin32Generator
                 }
             }
             Enforce.Data(funcMethodHandle != null);
-            this.GenerateFuncCommon(writer, funcMethodHandle!.Value, true);
+            this.GenerateFuncCommon(writer, funcMethodHandle!.Value, FuncKind.Ptr);
         }
 
-        private string GenerateFunc(TabWriter writer, string funcFieldPrefix, MethodDefinitionHandle funcHandle)
+        private string GenerateFunc(TabWriter writer, string funcFieldPrefix, MethodDefinitionHandle funcHandle, FuncKind kind)
         {
             writer.WriteLine("{0}{{", funcFieldPrefix);
             writer.Tab();
@@ -587,14 +625,14 @@ namespace JsonWin32Generator
                 writer.Untab();
                 writer.WriteLine("}");
             });
-            return this.GenerateFuncCommon(writer, funcHandle, false);
+            return this.GenerateFuncCommon(writer, funcHandle, kind);
         }
 
-        private string GenerateFuncCommon(TabWriter writer, MethodDefinitionHandle funcHandle, bool isFuncPtr)
+        private string GenerateFuncCommon(TabWriter writer, MethodDefinitionHandle funcHandle, FuncKind kind)
         {
             MethodDefinition funcDef = this.mr.GetMethodDefinition(funcHandle);
             string funcName = string.Empty;
-            if (isFuncPtr)
+            if (kind == FuncKind.Ptr)
             {
                 writer.WriteLine(",\"Kind\":\"FunctionPointer\"");
             }
@@ -607,13 +645,23 @@ namespace JsonWin32Generator
             // Looks like right now all the functions have these same attributes
             var decodedAttrs = new DecodedMethodAttributes(funcDef.Attributes);
             Enforce.Data(decodedAttrs.MemberAccess == MemberAccess.Public);
-            if (isFuncPtr)
+            if (kind == FuncKind.Ptr)
             {
                 Enforce.Data(!decodedAttrs.IsStatic);
                 Enforce.Data(decodedAttrs.IsVirtual);
                 Enforce.Data(!decodedAttrs.PInvokeImpl);
                 Enforce.Data(decodedAttrs.NewSlot);
                 Enforce.Data(funcDef.ImplAttributes == MethodImplAttributes.CodeTypeMask);
+                Enforce.Data(!decodedAttrs.IsAbstract);
+            }
+            else if (kind == FuncKind.Com)
+            {
+                Enforce.Data(!decodedAttrs.IsStatic);
+                Enforce.Data(decodedAttrs.IsVirtual);
+                Enforce.Data(!decodedAttrs.PInvokeImpl);
+                Enforce.Data(decodedAttrs.NewSlot);
+                Enforce.Data(funcDef.ImplAttributes == 0);
+                Enforce.Data(decodedAttrs.IsAbstract);
             }
             else
             {
@@ -622,9 +670,9 @@ namespace JsonWin32Generator
                 Enforce.Data(decodedAttrs.PInvokeImpl);
                 Enforce.Data(!decodedAttrs.NewSlot);
                 Enforce.Data(funcDef.ImplAttributes == MethodImplAttributes.PreserveSig);
+                Enforce.Data(!decodedAttrs.IsAbstract);
             }
             Enforce.Data(!decodedAttrs.IsFinal);
-            Enforce.Data(!decodedAttrs.IsAbstract);
             Enforce.Data(decodedAttrs.HideBySig);
             Enforce.Data(!decodedAttrs.SpecialName);
             Enforce.Data(!decodedAttrs.CheckAccessOnOverride);
@@ -636,38 +684,38 @@ namespace JsonWin32Generator
             Enforce.Data(methodImportAttrs.CharSet == CharSet.None);
             Enforce.Data(methodImportAttrs.BestFit == null);
             Enforce.Data(methodImportAttrs.ThrowOnUnmapableChar == null);
-            if (isFuncPtr)
-            {
-                Enforce.Data(!methodImportAttrs.ExactSpelling);
-                Enforce.Data(methodImportAttrs.CallConv == CallConv.None);
-                Enforce.Data(this.mr.GetString(methodImport.Name).Length == 0);
-            }
-            else
+            if (kind == FuncKind.Fixed)
             {
                 Enforce.Data(methodImportAttrs.ExactSpelling);
                 Enforce.Data(methodImportAttrs.CallConv == CallConv.Winapi);
                 Enforce.Data(this.mr.GetString(methodImport.Name) == funcName);
             }
+            else
+            {
+                Enforce.Data(!methodImportAttrs.ExactSpelling);
+                Enforce.Data(methodImportAttrs.CallConv == CallConv.None);
+                Enforce.Data(this.mr.GetString(methodImport.Name).Length == 0);
+            }
 
             ModuleReference moduleRef = this.mr.GetModuleReference(methodImport.Module);
             Enforce.Data(moduleRef.GetCustomAttributes().Count == 0);
-            string importName = isFuncPtr ? string.Empty : this.mr.GetString(moduleRef.Name);
+            string importName = (kind == FuncKind.Fixed) ? this.mr.GetString(moduleRef.Name) : string.Empty;
 
             MethodSignature<TypeRef> methodSig = funcDef.DecodeSignature(this.typeRefDecoder, null);
 
             Enforce.Data(methodSig.Header.Kind == SignatureKind.Method);
             Enforce.Data(methodSig.Header.CallingConvention == SignatureCallingConvention.Default);
-            if (isFuncPtr)
-            {
-                Enforce.Data(methodSig.Header.Attributes == SignatureAttributes.Instance);
-            }
-            else
+            if (kind == FuncKind.Fixed)
             {
                 Enforce.Data(methodSig.Header.Attributes == SignatureAttributes.None);
             }
+            else
+            {
+                Enforce.Data(methodSig.Header.Attributes == SignatureAttributes.Instance);
+            }
 
             writer.WriteLine(",\"SetLastError\":{0}", methodImportAttrs.SetLastError.Json());
-            if (!isFuncPtr)
+            if (kind == FuncKind.Fixed)
             {
                 writer.WriteLine(",\"DllImport\":\"{0}\"", importName);
             }
