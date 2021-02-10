@@ -107,8 +107,9 @@ namespace JsonWin32Generator
             {
                 builder.AppendFormat(
                     CultureInfo.InvariantCulture,
-                    "{{\"Kind\":\"ApiRef\",\"Name\":\"{0}\",\"Api\":\"{1}\",\"Parents\":[",
+                    "{{\"Kind\":\"ApiRef\",\"Name\":\"{0}\",\"Com\":{1},\"Api\":\"{2}\",\"Parents\":[",
                     this.Info.Name,
+                    this.Info.IsCom.Json(),
                     this.Info.ApiName);
                 TypeGenInfo? parentInfo = this.Info.EnclosingType;
                 string prefix = string.Empty;
