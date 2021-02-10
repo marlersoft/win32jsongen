@@ -402,7 +402,23 @@ namespace JsonWin32Generator
             else if (baseTypeNames == new NamespaceAndName("System", "ValueType"))
             {
                 Enforce.Data(freeFuncAttr == null);
-                this.GenerateStruct(writer, typeInfo, attrs.Layout, guid);
+                if (guid == null)
+                {
+                    this.GenerateStruct(writer, typeInfo, attrs.Layout);
+                }
+                else
+                {
+                    Enforce.Data(attrs.Layout == TypeLayoutKind.Sequential);
+                    writer.WriteLine(",\"Kind\":\"ComClassID\"");
+                    writer.WriteLine(",\"Guid\":{0}", guid.JsonString());
+                    TypeLayout layout = typeInfo.Def.GetLayout();
+                    Enforce.Data(layout.IsDefault);
+                    Enforce.Data(layout.Size == 0);
+                    Enforce.Data(layout.PackingSize == 0);
+                    Enforce.Data(typeInfo.Def.GetFields().Count == 0);
+                    Enforce.Data(typeInfo.Def.GetMethods().Count == 0);
+                    Enforce.Data(typeInfo.Def.GetNestedTypes().Length == 0);
+                }
             }
             else if (baseTypeNames == new NamespaceAndName("System", "MulticastDelegate"))
             {
@@ -502,7 +518,7 @@ namespace JsonWin32Generator
             Enforce.Data(typeInfo.NestedTypeCount == 0);
         }
 
-        private void GenerateStruct(TabWriter writer, TypeGenInfo typeInfo, TypeLayoutKind layoutKind, string? guid)
+        private void GenerateStruct(TabWriter writer, TypeGenInfo typeInfo, TypeLayoutKind layoutKind)
         {
             string kind;
             if (layoutKind == TypeLayoutKind.Explicit)
@@ -579,7 +595,6 @@ namespace JsonWin32Generator
             }
             writer.Untab();
             writer.WriteLine("]");
-            writer.WriteLine(",\"Guid\":{0}", guid.JsonString());
             if (constFields.Count > 0)
             {
                 writer.WriteLine(
