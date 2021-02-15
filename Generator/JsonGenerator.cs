@@ -123,6 +123,8 @@ namespace JsonWin32Generator
         {
             JsonGenerator generator = new JsonGenerator(mr);
 
+            Dictionary<string, ApiPatch> apiMap = PatchConfig.CreateApiMap();
+
             foreach (Api api in generator.apiNamespaceMap.Values)
             {
                 string filepath = Path.Combine(outDir, api.BaseFileName);
@@ -130,7 +132,23 @@ namespace JsonWin32Generator
                 using var streamWriter = new StreamWriter(fileStream, Encoding.UTF8);
                 var writer = new TabWriter(streamWriter);
                 Console.WriteLine("Api: {0}", api.Name);
-                generator.GenerateApi(writer, api);
+                ApiPatch apiPatch = apiMap.GetValueOrDefault(api.Name, Patch.EmptyApi);
+                apiPatch.ApplyCount += 1;
+                generator.GenerateApi(writer, apiPatch, api);
+            }
+
+            foreach (KeyValuePair<string, ApiPatch> apiPatchPair in apiMap)
+            {
+                string apiName = apiPatchPair.Key;
+                Enforce.Patch(
+                    apiPatchPair.Value.ApplyCount > 0,
+                    Fmt.In($"ApiPatch for '{apiName}' has not been applied, has this Api been removed?"));
+                apiPatchPair.Value.SelectSubPatches(patch =>
+                {
+                    Enforce.Patch(
+                        patch.ApplyCount > 0,
+                        Fmt.In($"In Api '{apiName}', patch '{patch}' has not been applied, maybe it has been fixed?"));
+                });
             }
         }
 
@@ -156,7 +174,7 @@ namespace JsonWin32Generator
             }
         }
 
-        private void GenerateApi(TabWriter writer, Api api)
+        private void GenerateApi(TabWriter writer, ApiPatch apiPatch, Api api)
         {
             writer.WriteLine("{");
             writer.WriteLine();
@@ -180,17 +198,17 @@ namespace JsonWin32Generator
                 string fieldPrefix = string.Empty;
                 foreach (TypeGenInfo typeInfo in api.TopLevelTypes)
                 {
-                    // COM type Windows.Win32.WindowsAccessibility.IUIAutomation6 has some methods
-                    // that reference a type that is not defined: ConnectionRecoveryBehaviorOptions
-                    // see https://github.com/microsoft/win32metadata/issues/127
-                    if (typeInfo.Fqn == "Windows.Win32.WindowsAccessibility.IUIAutomation6")
+                    TypePatch typePatch = apiPatch.TypeMap.GetValueOrDefault(typeInfo.Name, Patch.EmptyType);
+                    typePatch.ApplyCount += 1;
+
+                    if (typePatch.Config.Remove)
                     {
-                        Console.WriteLine("Skipping '{0}' because of https://github.com/microsoft/win32metadata/issues/127", typeInfo.Fqn);
+                        Console.WriteLine("Skipping '{0}' because it has been removed by a patch", typeInfo.Fqn);
                         continue;
                     }
 
                     writer.Tab();
-                    this.GenerateType(writer, fieldPrefix, typeInfo);
+                    this.GenerateType(writer, typePatch, fieldPrefix, typeInfo);
                     writer.Untab();
                     fieldPrefix = ",";
                     unicodeSet.RegisterTopLevelSymbol(typeInfo.Name);
@@ -205,7 +223,7 @@ namespace JsonWin32Generator
                 foreach (MethodDefinitionHandle funcHandle in api.Funcs)
                 {
                     writer.Tab();
-                    var funcName = this.GenerateFunc(writer, fieldPrefix, funcHandle, FuncKind.Fixed);
+                    var funcName = this.GenerateFunc(writer, apiPatch, fieldPrefix, funcHandle, FuncKind.Fixed);
                     writer.Untab();
                     fieldPrefix = ",";
                     unicodeSet.RegisterTopLevelSymbol(funcName);
@@ -305,7 +323,7 @@ namespace JsonWin32Generator
             WriteJsonArray(writer, ",\"Attrs\":", jsonAttributes, string.Empty);
         }
 
-        private void GenerateType(TabWriter writer, string typeFieldPrefix, TypeGenInfo typeInfo)
+        private void GenerateType(TabWriter writer, TypePatch typePatch, string typeFieldPrefix, TypeGenInfo typeInfo)
         {
             writer.WriteLine("{0}{{", typeFieldPrefix);
             writer.Tab();
@@ -384,7 +402,7 @@ namespace JsonWin32Generator
             {
                 Enforce.Data(attrs.Layout == TypeLayoutKind.Auto);
                 Enforce.Data(freeFuncAttr == null);
-                this.GenerateComType(writer, typeInfo, guid);
+                this.GenerateComType(writer, typePatch.ToComPatch(), typeInfo, guid);
                 return;
             }
 
@@ -404,7 +422,7 @@ namespace JsonWin32Generator
                 Enforce.Data(freeFuncAttr == null);
                 if (guid == null)
                 {
-                    this.GenerateStruct(writer, typeInfo, attrs.Layout);
+                    this.GenerateStruct(writer, typePatch, typeInfo, attrs.Layout);
                 }
                 else
                 {
@@ -433,21 +451,24 @@ namespace JsonWin32Generator
             }
         }
 
-        private void GenerateNestedTypes(TabWriter writer, TypeGenInfo typeInfo)
+        private void GenerateNestedTypes(TabWriter writer, TypePatch enclosingTypePatch, TypeGenInfo typeInfo)
         {
             string nestedFieldPrefix = string.Empty;
             writer.WriteLine(",\"NestedTypes\":[");
             foreach (TypeGenInfo nestedType in typeInfo.NestedTypesEnumerable)
             {
+                TypePatch nestedTypePatch = enclosingTypePatch.NestedTypeMap.GetValueOrDefault(nestedType.Name, Patch.EmptyType);
+                nestedTypePatch.ApplyCount += 1;
+
                 writer.Tab();
-                this.GenerateType(writer, nestedFieldPrefix, nestedType);
+                this.GenerateType(writer, nestedTypePatch, nestedFieldPrefix, nestedType);
                 writer.Untab();
                 nestedFieldPrefix = ",";
             }
             writer.WriteLine("]");
         }
 
-        private void GenerateComType(TabWriter writer, TypeGenInfo typeInfo, string? guid)
+        private void GenerateComType(TabWriter writer, ComTypePatch comTypePatch, TypeGenInfo typeInfo, string? guid)
         {
             Enforce.Data(typeInfo.Def.GetFields().Count == 0);
 
@@ -471,7 +492,7 @@ namespace JsonWin32Generator
             string methodElementPrefix = string.Empty;
             foreach (MethodDefinitionHandle methodDefHandle in typeInfo.Def.GetMethods())
             {
-                this.GenerateFunc(writer, methodElementPrefix, methodDefHandle, FuncKind.Com);
+                this.GenerateFunc(writer, comTypePatch, methodElementPrefix, methodDefHandle, FuncKind.Com);
                 methodElementPrefix = ",";
             }
             writer.Untab();
@@ -518,7 +539,7 @@ namespace JsonWin32Generator
             Enforce.Data(typeInfo.NestedTypeCount == 0);
         }
 
-        private void GenerateStruct(TabWriter writer, TypeGenInfo typeInfo, TypeLayoutKind layoutKind)
+        private void GenerateStruct(TabWriter writer, TypePatch typePatch, TypeGenInfo typeInfo, TypeLayoutKind layoutKind)
         {
             string kind;
             if (layoutKind == TypeLayoutKind.Explicit)
@@ -603,7 +624,7 @@ namespace JsonWin32Generator
                     string.Join(", ", constFields));
             }
             Enforce.Data(typeInfo.Def.GetMethods().Count == 0);
-            this.GenerateNestedTypes(writer, typeInfo);
+            this.GenerateNestedTypes(writer, typePatch, typeInfo);
         }
 
         private void GenerateFunctionPointer(TabWriter writer, TypeGenInfo typeInfo)
@@ -628,10 +649,10 @@ namespace JsonWin32Generator
                 }
             }
             Enforce.Data(funcMethodHandle != null);
-            this.GenerateFuncCommon(writer, funcMethodHandle!.Value, FuncKind.Ptr);
+            this.GenerateFuncCommon(writer, IFuncPatchMap.None, funcMethodHandle!.Value, FuncKind.Ptr);
         }
 
-        private string GenerateFunc(TabWriter writer, string funcFieldPrefix, MethodDefinitionHandle funcHandle, FuncKind kind)
+        private string GenerateFunc(TabWriter writer, IFuncPatchMap funcPatchMap, string funcFieldPrefix, MethodDefinitionHandle funcHandle, FuncKind kind)
         {
             writer.WriteLine("{0}{{", funcFieldPrefix);
             writer.Tab();
@@ -640,10 +661,10 @@ namespace JsonWin32Generator
                 writer.Untab();
                 writer.WriteLine("}");
             });
-            return this.GenerateFuncCommon(writer, funcHandle, kind);
+            return this.GenerateFuncCommon(writer, funcPatchMap, funcHandle, kind);
         }
 
-        private string GenerateFuncCommon(TabWriter writer, MethodDefinitionHandle funcHandle, FuncKind kind)
+        private string GenerateFuncCommon(TabWriter writer, IFuncPatchMap funcPatchMap, MethodDefinitionHandle funcHandle, FuncKind kind)
         {
             MethodDefinition funcDef = this.mr.GetMethodDefinition(funcHandle);
             string funcName = string.Empty;
@@ -656,6 +677,9 @@ namespace JsonWin32Generator
                 funcName = this.mr.GetString(funcDef.Name);
                 writer.WriteLine("\"Name\":\"{0}\"", funcName);
             }
+
+            FuncPatch funcPatch = (funcName.Length == 0) ? Patch.EmptyFunc : funcPatchMap.FuncMap.GetValueOrDefault(funcName, Patch.EmptyFunc);
+            funcPatch.ApplyCount += 1;
 
             // Looks like right now all the functions have these same attributes
             var decodedAttrs = new DecodedMethodAttributes(funcDef.Attributes);
@@ -755,6 +779,7 @@ namespace JsonWin32Generator
                 Enforce.Data(param.GetDefaultValue().IsNil);
                 List<string> jsonAttributes = new List<string>();
                 ParameterAttributes remainingAttrs = param.Attributes;
+                bool optional = false;
                 if (ParameterAttributes.In.ConsumeFlag(ref remainingAttrs))
                 {
                     jsonAttributes.Add("\"In\"");
@@ -765,16 +790,17 @@ namespace JsonWin32Generator
                 }
                 if (ParameterAttributes.Optional.ConsumeFlag(ref remainingAttrs))
                 {
-                    jsonAttributes.Add("\"Optional\"");
+                    optional = true; // set attribute below
                 }
                 Enforce.Data(remainingAttrs == ParameterAttributes.None);
                 TypeRef paramType = methodSig.ParameterTypes[param.SequenceNumber - 1];
+                bool @const = false;
                 foreach (CustomAttributeHandle attrHandle in param.GetCustomAttributes())
                 {
                     CustomAttr attr = this.DecodeCustomAttr(attrHandle);
                     if (object.ReferenceEquals(attr, CustomAttr.Const.Instance))
                     {
-                        jsonAttributes.Add("\"Const\"");
+                        @const = true; // set attribute below
                     }
                     else if (object.ReferenceEquals(attr, CustomAttr.ComOutPtr.Instance))
                     {
@@ -799,6 +825,29 @@ namespace JsonWin32Generator
 
                 string paramName = this.mr.GetString(param.Name);
                 Enforce.Data(paramName.Length > 0);
+
+                if (funcPatch.ParamMap.TryGetValue(paramName, out ParamPatch? patch))
+                {
+                    patch.ApplyCount += 1;
+                    if (patch.Config.Optional)
+                    {
+                        Enforce.Patch(!optional, Fmt.In($"parameter '{paramName}' Optional patch has been fixed"));
+                        optional = true;
+                    }
+                    if (patch.Config.Const)
+                    {
+                        Enforce.Patch(!@const, Fmt.In($"parameter '{paramName}' Const patch has been fixed"));
+                        @const = true;
+                    }
+                }
+                if (optional)
+                {
+                    jsonAttributes.Add("\"Optional\"");
+                }
+                if (@const)
+                {
+                    jsonAttributes.Add("\"Const\"");
+                }
 
                 string attrs = string.Join(",", jsonAttributes);
                 writer.WriteLine($"{paramFieldPrefix}{{\"Name\":\"{paramName}\",\"Type\":{paramType.ToJson()},\"Attrs\":[{attrs}]}}");

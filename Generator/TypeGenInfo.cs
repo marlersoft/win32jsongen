@@ -35,7 +35,10 @@ namespace JsonWin32Generator
 
         internal TypeGenInfo? EnclosingType { get; }
 
-        internal bool IsCom { get { return this.Def.BaseType.IsNil; } }
+        internal bool IsCom
+        {
+            get { return this.Def.BaseType.IsNil; }
+        }
 
         internal bool IsNested
         {

@@ -8,6 +8,7 @@
 namespace JsonWin32Generator
 {
     using System;
+    using System.Collections.Generic;
     using System.IO;
     using System.Reflection;
     using System.Reflection.Metadata;
@@ -43,6 +44,18 @@ namespace JsonWin32Generator
 
     internal static class Extensions
     {
+        internal static TValue GetOrCreate<TKey, TValue>(this IDictionary<TKey, TValue> dict, TKey key)
+            where TValue : new()
+        {
+            if (!dict.TryGetValue(key, out TValue val))
+            {
+                val = new TValue();
+                dict.Add(key, val);
+            }
+
+            return val;
+        }
+
         internal static PrimitiveTypeCode ToPrimitiveTypeCode(this ConstantTypeCode code) => code switch
         {
             ConstantTypeCode.Boolean => PrimitiveTypeCode.Boolean,
@@ -154,6 +167,12 @@ namespace JsonWin32Generator
             string suffix = (optional_msg == null) ? string.Empty : (": " + optional_msg);
             throw new InvalidDataException("an assumption about the win32metadata winmd data was violated" + suffix);
         }
+
+        internal static InvalidDataException Patch(string? optional_msg = null)
+        {
+            string suffix = (optional_msg == null) ? string.Empty : (": " + optional_msg);
+            throw new InvalidDataException("an error occurred while applying a patch" + suffix);
+        }
     }
 
     internal static class Enforce
@@ -172,6 +191,14 @@ namespace JsonWin32Generator
             if (!assumption)
             {
                 throw Violation.Data(optional_msg);
+            }
+        }
+
+        internal static void Patch(bool assumption, string? optional_msg = null)
+        {
+            if (!assumption)
+            {
+                throw Violation.Patch(optional_msg);
             }
         }
 
