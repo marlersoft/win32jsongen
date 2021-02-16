@@ -122,6 +122,7 @@ namespace JsonWin32Generator
             ClrTypeToCustomAttrTypeMap.Add(typeof(bool), Bool);
             ClrTypeToCustomAttrTypeMap.Add(typeof(short), Int16);
             ClrTypeToCustomAttrTypeMap.Add(typeof(int), Int32);
+            ClrTypeToCustomAttrTypeMap.Add(typeof(string), Str);
             ClrTypeToCustomAttrTypeMap.Add(typeof(System.Runtime.InteropServices.UnmanagedType), UnmanagedType);
         }
 
@@ -153,7 +154,7 @@ namespace JsonWin32Generator
             if (attrName == new NamespaceAndName("Windows.Win32.Interop", "NativeTypeInfoAttribute"))
             {
                 Enforce.AttrFixedArgCount(attrName, attrArgs, 1);
-                UnmanagedType unmanagedType = Enforce.AttrFixedArgAsUnmanagedType(attrArgs.FixedArguments[0]);
+                UnmanagedType unmanagedType = Enforce.FixedAttrAs<UnmanagedType>(attrArgs.FixedArguments[0]);
                 bool isNullTerminated = false;
                 bool isNullNullTerminated = false;
                 short? sizeParamIndex = null;
@@ -206,21 +207,21 @@ namespace JsonWin32Generator
             {
                 Enforce.AttrFixedArgCount(attrName, attrArgs, 1);
                 Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
-                return new CustomAttr.Obsolete(Enforce.AttrFixedArgAsString(attrArgs.FixedArguments[0]));
+                return new CustomAttr.Obsolete(Enforce.FixedAttrAs<string>(attrArgs.FixedArguments[0]));
             }
 
             if (attrName == new NamespaceAndName("System.Runtime.InteropServices", "GuidAttribute"))
             {
                 Enforce.AttrFixedArgCount(attrName, attrArgs, 1);
                 Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
-                return new CustomAttr.Guid(Enforce.AttrFixedArgAsString(attrArgs.FixedArguments[0]));
+                return new CustomAttr.Guid(Enforce.FixedAttrAs<string>(attrArgs.FixedArguments[0]));
             }
 
             if (attrName == new NamespaceAndName("Windows.Win32.Interop", "RAIIFreeAttribute"))
             {
                 Enforce.AttrFixedArgCount(attrName, attrArgs, 1);
                 Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
-                return new CustomAttr.RaiiFree(Enforce.AttrFixedArgAsString(attrArgs.FixedArguments[0]));
+                return new CustomAttr.RaiiFree(Enforce.FixedAttrAs<string>(attrArgs.FixedArguments[0]));
             }
 
             if (attrName == new NamespaceAndName("Windows.Win32.Interop", "NativeTypedefAttribute"))

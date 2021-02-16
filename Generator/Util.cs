@@ -236,24 +236,15 @@ namespace JsonWin32Generator
                 $"expected attribute '{name}' to have named argument at index {index} to be named '{expected}' but got '{actual}'"));
         }
 
-        internal static string AttrFixedArgAsString(CustomAttributeTypedArgument<CustomAttrType> attr_value)
+        internal static T FixedAttrAs<T>(CustomAttributeTypedArgument<CustomAttrType> attr_value)
         {
-            if (object.ReferenceEquals(attr_value.Type, CustomAttrType.Str))
+            CustomAttrType expectedType = CustomAttrType.ToCustomAttrType(typeof(T));
+            if (object.ReferenceEquals(attr_value.Type, expectedType))
             {
-                return (string)attr_value.Value!;
+                return (T)attr_value.Value!;
             }
 
-            throw new InvalidDataException(Fmt.In($"expected attribute value to be a string but got '{attr_value}'"));
-        }
-
-        internal static UnmanagedType AttrFixedArgAsUnmanagedType(CustomAttributeTypedArgument<CustomAttrType> attr_value)
-        {
-            if (object.ReferenceEquals(attr_value.Type, CustomAttrType.UnmanagedType))
-            {
-                return (UnmanagedType)attr_value.Value!;
-            }
-
-            throw new InvalidDataException(Fmt.In($"expected attribute value to be an UnmanagedType enum value, but got '{attr_value}'"));
+            throw new InvalidDataException(Fmt.In($"expected attribute value to be '{expectedType}', but got '{attr_value.Type}'"));
         }
 
         internal static T NamedAttrAs<T>(CustomAttributeNamedArgument<CustomAttrType> attr_value)
