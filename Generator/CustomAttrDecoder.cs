@@ -138,6 +138,122 @@ namespace JsonWin32Generator
 
     internal class CustomAttr
     {
+        internal static CustomAttr Decode(MetadataReader mr, CustomAttributeHandle attrHandle)
+        {
+            CustomAttribute attr = mr.GetCustomAttribute(attrHandle);
+            NamespaceAndName attrName = attr.GetAttrTypeName(mr);
+            CustomAttributeValue<CustomAttrType> attrArgs = attr.DecodeValue(CustomAttrDecoder.Instance);
+            if (attrName == new NamespaceAndName("Windows.Win32.Interop", "ConstAttribute"))
+            {
+                Enforce.AttrFixedArgCount(attrName, attrArgs, 0);
+                Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
+                return CustomAttr.Const.Instance;
+            }
+
+            if (attrName == new NamespaceAndName("Windows.Win32.Interop", "NativeTypeInfoAttribute"))
+            {
+                Enforce.AttrFixedArgCount(attrName, attrArgs, 1);
+                UnmanagedType unmanagedType = Enforce.AttrFixedArgAsUnmanagedType(attrArgs.FixedArguments[0]);
+                bool isNullTerminated = false;
+                bool isNullNullTerminated = false;
+                short? sizeParamIndex = null;
+                UnmanagedType? arraySubType = null;
+                int? sizeConst = null;
+
+                foreach (CustomAttributeNamedArgument<CustomAttrType> namedArg in attrArgs.NamedArguments)
+                {
+                    if (namedArg.Name == "IsNullTerminated")
+                    {
+                        Enforce.Data(isNullTerminated == false);
+                        isNullTerminated = Enforce.NamedAttrAs<bool>(namedArg);
+                    }
+                    else if (namedArg.Name == "IsNullNullTerminated")
+                    {
+                        Enforce.Data(isNullNullTerminated == false);
+                        isNullNullTerminated = Enforce.NamedAttrAs<bool>(namedArg);
+                    }
+                    else if (namedArg.Name == "SizeParamIndex")
+                    {
+                        Enforce.Data(!sizeParamIndex.HasValue);
+                        sizeParamIndex = Enforce.NamedAttrAs<short>(namedArg);
+                    }
+                    else if (namedArg.Name == "ArraySubType")
+                    {
+                        Enforce.Data(!arraySubType.HasValue);
+                        arraySubType = Enforce.NamedAttrAs<UnmanagedType>(namedArg);
+                    }
+                    else if (namedArg.Name == "SizeConst")
+                    {
+                        Enforce.Data(!sizeConst.HasValue);
+                        sizeConst = Enforce.NamedAttrAs<int>(namedArg);
+                    }
+                    else
+                    {
+                        Violation.Data();
+                    }
+                }
+
+                return new CustomAttr.NativeTypeInfo(
+                    unmanagedType: unmanagedType,
+                    isNullTerminated: isNullTerminated,
+                    isNullNullTerminated: isNullNullTerminated,
+                    sizeParamIndex: sizeParamIndex,
+                    arraySubType: arraySubType,
+                    sizeConst: sizeConst);
+            }
+
+            if (attrName == new NamespaceAndName("System", "ObsoleteAttribute"))
+            {
+                Enforce.AttrFixedArgCount(attrName, attrArgs, 1);
+                Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
+                return new CustomAttr.Obsolete(Enforce.AttrFixedArgAsString(attrArgs.FixedArguments[0]));
+            }
+
+            if (attrName == new NamespaceAndName("System.Runtime.InteropServices", "GuidAttribute"))
+            {
+                Enforce.AttrFixedArgCount(attrName, attrArgs, 1);
+                Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
+                return new CustomAttr.Guid(Enforce.AttrFixedArgAsString(attrArgs.FixedArguments[0]));
+            }
+
+            if (attrName == new NamespaceAndName("Windows.Win32.Interop", "RAIIFreeAttribute"))
+            {
+                Enforce.AttrFixedArgCount(attrName, attrArgs, 1);
+                Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
+                return new CustomAttr.RaiiFree(Enforce.AttrFixedArgAsString(attrArgs.FixedArguments[0]));
+            }
+
+            if (attrName == new NamespaceAndName("Windows.Win32.Interop", "NativeTypedefAttribute"))
+            {
+                Enforce.AttrFixedArgCount(attrName, attrArgs, 0);
+                Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
+                return CustomAttr.NativeTypedef.Instance;
+            }
+
+            if (attrName == new NamespaceAndName("System.Runtime.InteropServices", "UnmanagedFunctionPointerAttribute"))
+            {
+                Enforce.AttrFixedArgCount(attrName, attrArgs, 1);
+                Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
+                return CustomAttr.UnmanagedFunctionPointer.Instance;
+            }
+
+            if (attrName == new NamespaceAndName("Windows.Win32.Interop", "ComOutPtrAttribute"))
+            {
+                Enforce.AttrFixedArgCount(attrName, attrArgs, 0);
+                Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
+                return CustomAttr.ComOutPtr.Instance;
+            }
+
+            if (attrName == new NamespaceAndName("Windows.Win32.Interop", "GuidConstAttribute"))
+            {
+                Enforce.AttrFixedArgCount(attrName, attrArgs, 0);
+                Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
+                return CustomAttr.GuidConstAttribute.Instance;
+            }
+
+            throw new NotImplementedException(Fmt.In($"unhandled custom attribute \"{attrName.Namespace}\", \"{attrName.Name}\""));
+        }
+
         internal class Const : CustomAttr
         {
             internal static readonly Const Instance = new Const();

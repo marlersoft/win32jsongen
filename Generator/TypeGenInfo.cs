@@ -13,7 +13,7 @@ namespace JsonWin32Generator
     {
         private List<TypeGenInfo>? nestedTypes;
 
-        private TypeGenInfo(TypeDefinition def, string apiName, string name, string apiNamespace, string fqn, TypeGenInfo? enclosingType)
+        private TypeGenInfo(MetadataReader mr, TypeDefinition def, string apiName, string name, string apiNamespace, string fqn, TypeGenInfo? enclosingType)
         {
             this.Def = def;
             this.ApiName = apiName;
@@ -21,6 +21,40 @@ namespace JsonWin32Generator
             this.ApiNamespace = apiNamespace;
             this.Fqn = fqn;
             this.EnclosingType = enclosingType;
+
+            Enforce.Data(def.GetDeclarativeSecurityAttributes().Count == 0);
+            Enforce.Data(def.GetEvents().Count == 0);
+            Enforce.Data(def.GetGenericParameters().Count == 0);
+            Enforce.Data(def.GetMethodImplementations().Count == 0);
+            Enforce.Data(def.GetProperties().Count == 0);
+
+            if (def.BaseType.IsNil)
+            {
+                this.BaseTypeName = new NamespaceAndName(string.Empty, string.Empty);
+                this.TypeRefTargetKind = TypeRefKind.Com;
+            }
+            else
+            {
+                Enforce.Data(def.GetInterfaceImplementations().Count == 0);
+                Enforce.Data(def.BaseType.Kind == HandleKind.TypeReference);
+                TypeReference baseTypeRef = mr.GetTypeReference((TypeReferenceHandle)def.BaseType);
+                this.BaseTypeName = new NamespaceAndName(mr.GetString(baseTypeRef.Namespace), mr.GetString(baseTypeRef.Name));
+                if (this.BaseTypeName == new NamespaceAndName("System", "MulticastDelegate"))
+                {
+                    this.TypeRefTargetKind = TypeRefKind.FunctionPointer;
+                }
+                else
+                {
+                    this.TypeRefTargetKind = TypeRefKind.Default;
+                }
+            }
+        }
+
+        public enum TypeRefKind
+        {
+            Default,
+            FunctionPointer,
+            Com,
         }
 
         internal TypeDefinition Def { get; }
@@ -35,10 +69,9 @@ namespace JsonWin32Generator
 
         internal TypeGenInfo? EnclosingType { get; }
 
-        internal bool IsCom
-        {
-            get { return this.Def.BaseType.IsNil; }
-        }
+        internal NamespaceAndName BaseTypeName { get; }
+
+        internal TypeRefKind TypeRefTargetKind { get; }
 
         internal bool IsNested
         {
@@ -64,7 +97,7 @@ namespace JsonWin32Generator
             }
         }
 
-        internal static TypeGenInfo CreateNotNested(TypeDefinition def, string name, string @namespace, Dictionary<string, string> apiNamespaceToName)
+        internal static TypeGenInfo CreateNotNested(MetadataReader mr, TypeDefinition def, string name, string @namespace, Dictionary<string, string> apiNamespaceToName)
         {
             Enforce.Invariant(!def.IsNested, "CreateNotNested called for TypeDefinition that is nested");
             string? apiName;
@@ -77,6 +110,7 @@ namespace JsonWin32Generator
 
             string fqn = Fmt.In($"{@namespace}.{name}");
             return new TypeGenInfo(
+                mr: mr,
                 def: def,
                 apiName: apiName,
                 name: name,
@@ -93,6 +127,7 @@ namespace JsonWin32Generator
             Enforce.Data(@namespace.Length == 0, "I thought all nested types had an empty namespace");
             string fqn = Fmt.In($"{enclosingType.Fqn}+{name}");
             return new TypeGenInfo(
+                mr: mr,
                 def: def,
                 apiName: enclosingType.ApiName,
                 name: name,

@@ -50,26 +50,25 @@ namespace JsonWin32Generator
                     continue;
                 }
 
-                TypeGenInfo typeInfo = TypeGenInfo.CreateNotNested(typeDef, typeName, typeNamespace, apiNamespaceToName);
-                this.typeMap.Add(typeDefHandle, typeInfo);
-
                 Api? api;
-                if (!this.apiNamespaceMap.TryGetValue(typeInfo.ApiNamespace, out api))
+                if (!this.apiNamespaceMap.TryGetValue(typeNamespace, out api))
                 {
-                    api = new Api(typeInfo.ApiNamespace);
-                    this.apiNamespaceMap.Add(typeInfo.ApiNamespace, api);
+                    api = new Api(typeNamespace);
+                    this.apiNamespaceMap.Add(typeNamespace, api);
                 }
 
                 // The "Apis" type is a specially-named type reserved to contain all the constant
                 // and function declarations for an api.
-                if (typeInfo.Name == "Apis")
+                if (typeName == "Apis")
                 {
                     Enforce.Data(api.Constants == null, "multiple Apis types in the same namespace");
-                    api.Constants = typeInfo.Def.GetFields();
-                    api.Funcs = typeInfo.Def.GetMethods();
+                    api.Constants = typeDef.GetFields();
+                    api.Funcs = typeDef.GetMethods();
                 }
                 else
                 {
+                    TypeGenInfo typeInfo = TypeGenInfo.CreateNotNested(mr, typeDef, typeName, typeNamespace, apiNamespaceToName);
+                    this.typeMap.Add(typeDefHandle, typeInfo);
                     api.AddTopLevelType(typeInfo);
                 }
             }
@@ -281,7 +280,7 @@ namespace JsonWin32Generator
             // TODO: what is fieldDef.GetMarshallingDescriptor?
             foreach (CustomAttributeHandle attrHandle in fieldDef.GetCustomAttributes())
             {
-                CustomAttr attr = this.DecodeCustomAttr(attrHandle);
+                CustomAttr attr = CustomAttr.Decode(this.mr, attrHandle);
                 if (object.ReferenceEquals(attr, CustomAttr.Const.Instance))
                 {
                     // we already assume "const" on all constant values where this matters (i.e. string literals)
@@ -333,11 +332,6 @@ namespace JsonWin32Generator
                 writer.WriteLine("}");
             });
             writer.WriteLine("\"Name\":\"{0}\"", typeInfo.Name);
-            Enforce.Data(typeInfo.Def.GetDeclarativeSecurityAttributes().Count == 0);
-            Enforce.Data(typeInfo.Def.GetEvents().Count == 0);
-            Enforce.Data(typeInfo.Def.GetGenericParameters().Count == 0);
-            Enforce.Data(typeInfo.Def.GetMethodImplementations().Count == 0);
-            Enforce.Data(typeInfo.Def.GetProperties().Count == 0);
             Enforce.Data(typeInfo.Def.GetNestedTypes().Length == typeInfo.NestedTypeCount);
             foreach (TypeDefinitionHandle nestedTypeHandle in typeInfo.Def.GetNestedTypes())
             {
@@ -358,7 +352,7 @@ namespace JsonWin32Generator
 
             foreach (CustomAttributeHandle attrHandle in typeInfo.Def.GetCustomAttributes())
             {
-                CustomAttr attr = this.DecodeCustomAttr(attrHandle);
+                CustomAttr attr = CustomAttr.Decode(this.mr, attrHandle);
                 if (attr is CustomAttr.Guid guidAttr)
                 {
                     Enforce.Data(guid == null);
@@ -385,6 +379,7 @@ namespace JsonWin32Generator
 
             if (isNativeTypedef)
             {
+                Enforce.Data(typeInfo.TypeRefTargetKind == TypeGenInfo.TypeRefKind.Default);
                 writer.WriteLine(",\"Kind\":\"NativeTypedef\"");
                 Enforce.Data(attrs.Layout == TypeLayoutKind.Sequential);
                 Enforce.Data(typeInfo.Def.GetFields().Count == 1);
@@ -395,30 +390,25 @@ namespace JsonWin32Generator
                 writer.WriteLine(",\"FreeFunc\":{0}", freeFuncAttr.JsonString());
                 Enforce.Data(typeInfo.Def.GetMethods().Count == 0);
                 Enforce.Data(typeInfo.NestedTypeCount == 0);
-                return;
             }
-
-            if (typeInfo.Def.BaseType.IsNil)
+            else if (typeInfo.Def.BaseType.IsNil)
             {
+                Enforce.Data(typeInfo.TypeRefTargetKind == TypeGenInfo.TypeRefKind.Com);
                 Enforce.Data(attrs.Layout == TypeLayoutKind.Auto);
                 Enforce.Data(freeFuncAttr == null);
                 this.GenerateComType(writer, typePatch.ToComPatch(), typeInfo, guid);
-                return;
             }
-
-            Enforce.Data(typeInfo.Def.GetInterfaceImplementations().Count == 0);
-            Enforce.Data(typeInfo.Def.BaseType.Kind == HandleKind.TypeReference);
-            TypeReference baseTypeRef = this.mr.GetTypeReference((TypeReferenceHandle)typeInfo.Def.BaseType);
-            NamespaceAndName baseTypeNames = new NamespaceAndName(this.mr.GetString(baseTypeRef.Namespace), this.mr.GetString(baseTypeRef.Name));
-            if (baseTypeNames == new NamespaceAndName("System", "Enum"))
+            else if (typeInfo.BaseTypeName == new NamespaceAndName("System", "Enum"))
             {
+                Enforce.Data(typeInfo.TypeRefTargetKind == TypeGenInfo.TypeRefKind.Default);
                 Enforce.Data(guid == null);
                 Enforce.Data(freeFuncAttr == null);
                 Enforce.Data(attrs.Layout == TypeLayoutKind.Auto);
                 this.GenerateEnum(writer, typeInfo);
             }
-            else if (baseTypeNames == new NamespaceAndName("System", "ValueType"))
+            else if (typeInfo.BaseTypeName == new NamespaceAndName("System", "ValueType"))
             {
+                Enforce.Data(typeInfo.TypeRefTargetKind == TypeGenInfo.TypeRefKind.Default);
                 Enforce.Data(freeFuncAttr == null);
                 if (guid == null)
                 {
@@ -438,8 +428,9 @@ namespace JsonWin32Generator
                     Enforce.Data(typeInfo.Def.GetNestedTypes().Length == 0);
                 }
             }
-            else if (baseTypeNames == new NamespaceAndName("System", "MulticastDelegate"))
+            else if (typeInfo.BaseTypeName == new NamespaceAndName("System", "MulticastDelegate"))
             {
+                Enforce.Data(typeInfo.TypeRefTargetKind == TypeGenInfo.TypeRefKind.FunctionPointer);
                 Enforce.Data(guid == null);
                 Enforce.Data(freeFuncAttr == null);
                 Enforce.Data(attrs.Layout == TypeLayoutKind.Auto);
@@ -588,7 +579,7 @@ namespace JsonWin32Generator
                 List<string> jsonAttributes = new List<string>();
                 foreach (CustomAttributeHandle attrHandle in fieldDef.GetCustomAttributes())
                 {
-                    CustomAttr attr = this.DecodeCustomAttr(attrHandle);
+                    CustomAttr attr = CustomAttr.Decode(this.mr, attrHandle);
                     if (object.ReferenceEquals(attr, CustomAttr.Const.Instance))
                     {
                         jsonAttributes.Add("\"Const\"");
@@ -797,7 +788,7 @@ namespace JsonWin32Generator
                 bool @const = false;
                 foreach (CustomAttributeHandle attrHandle in param.GetCustomAttributes())
                 {
-                    CustomAttr attr = this.DecodeCustomAttr(attrHandle);
+                    CustomAttr attr = CustomAttr.Decode(this.mr, attrHandle);
                     if (object.ReferenceEquals(attr, CustomAttr.Const.Instance))
                     {
                         @const = true; // set attribute below
@@ -859,122 +850,6 @@ namespace JsonWin32Generator
         }
 
 #pragma warning restore SA1513 // Closing brace should be followed by blank line
-
-        private CustomAttr DecodeCustomAttr(CustomAttributeHandle attrHandle)
-        {
-            CustomAttribute attr = this.mr.GetCustomAttribute(attrHandle);
-            NamespaceAndName attrName = attr.GetAttrTypeName(this.mr);
-            CustomAttributeValue<CustomAttrType> attrArgs = attr.DecodeValue(CustomAttrDecoder.Instance);
-            if (attrName == new NamespaceAndName("Windows.Win32.Interop", "ConstAttribute"))
-            {
-                Enforce.AttrFixedArgCount(attrName, attrArgs, 0);
-                Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
-                return CustomAttr.Const.Instance;
-            }
-
-            if (attrName == new NamespaceAndName("Windows.Win32.Interop", "NativeTypeInfoAttribute"))
-            {
-                Enforce.AttrFixedArgCount(attrName, attrArgs, 1);
-                UnmanagedType unmanagedType = Enforce.AttrFixedArgAsUnmanagedType(attrArgs.FixedArguments[0]);
-                bool isNullTerminated = false;
-                bool isNullNullTerminated = false;
-                short? sizeParamIndex = null;
-                UnmanagedType? arraySubType = null;
-                int? sizeConst = null;
-
-                foreach (CustomAttributeNamedArgument<CustomAttrType> namedArg in attrArgs.NamedArguments)
-                {
-                    if (namedArg.Name == "IsNullTerminated")
-                    {
-                        Enforce.Data(isNullTerminated == false);
-                        isNullTerminated = Enforce.NamedAttrAs<bool>(namedArg);
-                    }
-                    else if (namedArg.Name == "IsNullNullTerminated")
-                    {
-                        Enforce.Data(isNullNullTerminated == false);
-                        isNullNullTerminated = Enforce.NamedAttrAs<bool>(namedArg);
-                    }
-                    else if (namedArg.Name == "SizeParamIndex")
-                    {
-                        Enforce.Data(!sizeParamIndex.HasValue);
-                        sizeParamIndex = Enforce.NamedAttrAs<short>(namedArg);
-                    }
-                    else if (namedArg.Name == "ArraySubType")
-                    {
-                        Enforce.Data(!arraySubType.HasValue);
-                        arraySubType = Enforce.NamedAttrAs<UnmanagedType>(namedArg);
-                    }
-                    else if (namedArg.Name == "SizeConst")
-                    {
-                        Enforce.Data(!sizeConst.HasValue);
-                        sizeConst = Enforce.NamedAttrAs<int>(namedArg);
-                    }
-                    else
-                    {
-                        Violation.Data();
-                    }
-                }
-
-                return new CustomAttr.NativeTypeInfo(
-                    unmanagedType: unmanagedType,
-                    isNullTerminated: isNullTerminated,
-                    isNullNullTerminated: isNullNullTerminated,
-                    sizeParamIndex: sizeParamIndex,
-                    arraySubType: arraySubType,
-                    sizeConst: sizeConst);
-            }
-
-            if (attrName == new NamespaceAndName("System", "ObsoleteAttribute"))
-            {
-                Enforce.AttrFixedArgCount(attrName, attrArgs, 1);
-                Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
-                return new CustomAttr.Obsolete(Enforce.AttrFixedArgAsString(attrArgs.FixedArguments[0]));
-            }
-
-            if (attrName == new NamespaceAndName("System.Runtime.InteropServices", "GuidAttribute"))
-            {
-                Enforce.AttrFixedArgCount(attrName, attrArgs, 1);
-                Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
-                return new CustomAttr.Guid(Enforce.AttrFixedArgAsString(attrArgs.FixedArguments[0]));
-            }
-
-            if (attrName == new NamespaceAndName("Windows.Win32.Interop", "RAIIFreeAttribute"))
-            {
-                Enforce.AttrFixedArgCount(attrName, attrArgs, 1);
-                Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
-                return new CustomAttr.RaiiFree(Enforce.AttrFixedArgAsString(attrArgs.FixedArguments[0]));
-            }
-
-            if (attrName == new NamespaceAndName("Windows.Win32.Interop", "NativeTypedefAttribute"))
-            {
-                Enforce.AttrFixedArgCount(attrName, attrArgs, 0);
-                Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
-                return CustomAttr.NativeTypedef.Instance;
-            }
-
-            if (attrName == new NamespaceAndName("System.Runtime.InteropServices", "UnmanagedFunctionPointerAttribute"))
-            {
-                Enforce.AttrFixedArgCount(attrName, attrArgs, 1);
-                Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
-                return CustomAttr.UnmanagedFunctionPointer.Instance;
-            }
-
-            if (attrName == new NamespaceAndName("Windows.Win32.Interop", "ComOutPtrAttribute"))
-            {
-                Enforce.AttrFixedArgCount(attrName, attrArgs, 0);
-                Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
-                return CustomAttr.ComOutPtr.Instance;
-            }
-
-            if (attrName == new NamespaceAndName("Windows.Win32.Interop", "GuidConstAttribute"))
-            {
-                Enforce.AttrFixedArgCount(attrName, attrArgs, 0);
-                Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
-                return CustomAttr.GuidConstAttribute.Instance;
-            }
-
-            throw new NotImplementedException(Fmt.In($"unhandled custom attribute \"{attrName.Namespace}\", \"{attrName.Name}\""));
-        }
 
         private class UnicodeAlias
         {
