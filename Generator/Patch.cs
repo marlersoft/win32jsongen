@@ -14,11 +14,6 @@ namespace JsonWin32Generator
     {
         internal static readonly Func[] Funcs = new Func[]
         {
-            // patch https://github.com/microsoft/win32metadata/issues/211
-            new Func(Api: "FileSystem", Name: "WriteFile", new Param[]
-            {
-                new Param(Name: "lpBuffer", Const: true),
-            }),
         };
 
         internal static readonly Type[] Types = new Type[]

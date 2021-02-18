@@ -33,14 +33,22 @@ namespace JsonWin32Generator
             {
                 return pointerTo.ChildType;
             }
-            else if (object.ReferenceEquals(this, Primitive.IntPtr))
+            if (object.ReferenceEquals(this, Primitive.IntPtr))
             {
                 return Primitive.Void;
             }
-            else
+            if (this is TypeRef.User userType)
             {
-                throw Violation.Data();
+                if (userType.Info.Fqn == "Windows.Win32.SystemServices.PSTR")
+                {
+                    return TypeRef.Primitive.Byte;
+                }
+                if (userType.Info.Fqn == "Windows.Win32.SystemServices.PWSTR")
+                {
+                    return TypeRef.Primitive.Char;
+                }
             }
+            throw Violation.Data();
         }
 
         internal class ArrayOf : TypeRef
@@ -194,19 +202,12 @@ namespace JsonWin32Generator
 
         internal class LPArray : TypeRef
         {
-            internal LPArray(CustomAttr.NativeTypeInfo info, TypeRef typeRef)
+            internal LPArray(CustomAttr.NativeArrayInfo info, TypeRef typeRef)
             {
-                Enforce.Data(!info.IsNullTerminated);
-                this.NullNullTerm = info.IsNullNullTerminated;
-                this.SizeParamIndex = info.SizeParamIndex.HasValue ? info.SizeParamIndex.Value : -1;
-                this.SizeConst = info.SizeConst.HasValue ? info.SizeConst.Value : -1;
-                this.ArraySubType = !info.ArraySubType.HasValue ? null : info.ArraySubType.Value switch
-                {
-                    UnmanagedType.LPStr => LPStringType.LPStr,
-                    UnmanagedType.LPWStr => LPStringType.LPWStr,
-                    _ => throw Violation.Data(),
-
-                };
+                this.NullNullTerm = false;
+                this.SizeParamIndex = info.SizeParamIndex ?? -1;
+                this.BytesParamIndex = info.BytesParamIndex ?? -1;
+                this.SizeConst = info.SizeConst ?? -1;
                 this.ChildType = typeRef.GetChildType();
             }
 
@@ -214,49 +215,15 @@ namespace JsonWin32Generator
 
             internal short SizeParamIndex { get; }
 
+            internal short BytesParamIndex { get; }
+
             internal int SizeConst { get; }
 
-            internal LPStringType? ArraySubType { get; }
-
             internal TypeRef ChildType { get; }
 
             internal override void FormatTypeJson(StringBuilder builder)
             {
-                builder.Append($"{{\"Kind\":\"LPArray\",\"NullNullTerm\":{this.NullNullTerm.Json()},\"SizeParamIndex\":{this.SizeParamIndex},\"SizeConst\":{this.SizeConst},\"ArraySubType\":{this.ArraySubType.JsonString()},\"Child\":");
-                this.ChildType.FormatTypeJson(builder);
-                builder.Append('}');
-            }
-        }
-
-        internal class LPStr : TypeRef
-        {
-            internal LPStr(CustomAttr.NativeTypeInfo info, TypeRef typeRef)
-            {
-                Enforce.Data(!info.SizeParamIndex.HasValue);
-                Enforce.Data(!info.ArraySubType.HasValue);
-                Enforce.Data(!info.SizeConst.HasValue);
-                this.Wide = info.UnmanagedType switch
-                {
-                    UnmanagedType.LPStr => false,
-                    UnmanagedType.LPWStr => true,
-                    _ => throw Violation.Data(),
-                };
-                this.NullTerm = info.IsNullTerminated;
-                this.NullNullTerm = info.IsNullNullTerminated;
-                this.ChildType = typeRef.GetChildType();
-            }
-
-            internal bool Wide { get; }
-
-            internal bool NullTerm { get; }
-
-            internal bool NullNullTerm { get; }
-
-            internal TypeRef ChildType { get; }
-
-            internal override void FormatTypeJson(StringBuilder builder)
-            {
-                builder.Append($"{{\"Kind\":\"LPStr\",\"Wide\":{this.Wide.Json()},\"NullTerm\":{this.NullTerm.Json()},\"NullNullTerm\":{this.NullNullTerm.Json()},\"Child\":");
+                builder.Append($"{{\"Kind\":\"LPArray\",\"NullNullTerm\":{this.NullNullTerm.Json()},\"SizeParamIndex\":{this.SizeParamIndex},\"BytesParamIndex\":{this.BytesParamIndex},\"SizeConst\":{this.SizeConst},\"Child\":");
                 this.ChildType.FormatTypeJson(builder);
                 builder.Append('}');
             }

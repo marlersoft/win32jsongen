@@ -151,56 +151,35 @@ namespace JsonWin32Generator
                 return CustomAttr.Const.Instance;
             }
 
-            if (attrName == new NamespaceAndName("Windows.Win32.Interop", "NativeTypeInfoAttribute"))
+            if (attrName == new NamespaceAndName("Windows.Win32.Interop", "NativeArrayInfoAttribute"))
             {
-                Enforce.AttrFixedArgCount(attrName, attrArgs, 1);
-                UnmanagedType unmanagedType = Enforce.FixedAttrAs<UnmanagedType>(attrArgs.FixedArguments[0]);
-                bool isNullTerminated = false;
-                bool isNullNullTerminated = false;
+                Enforce.AttrFixedArgCount(attrName, attrArgs, 0);
                 short? sizeParamIndex = null;
-                UnmanagedType? arraySubType = null;
                 int? sizeConst = null;
-
+                short? bytesParamIndex = null;
                 foreach (CustomAttributeNamedArgument<CustomAttrType> namedArg in attrArgs.NamedArguments)
                 {
-                    if (namedArg.Name == "IsNullTerminated")
-                    {
-                        Enforce.Data(isNullTerminated == false);
-                        isNullTerminated = Enforce.NamedAttrAs<bool>(namedArg);
-                    }
-                    else if (namedArg.Name == "IsNullNullTerminated")
-                    {
-                        Enforce.Data(isNullNullTerminated == false);
-                        isNullNullTerminated = Enforce.NamedAttrAs<bool>(namedArg);
-                    }
-                    else if (namedArg.Name == "SizeParamIndex")
+                    if (namedArg.Name == "SizeParamIndex")
                     {
                         Enforce.Data(!sizeParamIndex.HasValue);
                         sizeParamIndex = Enforce.NamedAttrAs<short>(namedArg);
-                    }
-                    else if (namedArg.Name == "ArraySubType")
-                    {
-                        Enforce.Data(!arraySubType.HasValue);
-                        arraySubType = Enforce.NamedAttrAs<UnmanagedType>(namedArg);
                     }
                     else if (namedArg.Name == "SizeConst")
                     {
                         Enforce.Data(!sizeConst.HasValue);
                         sizeConst = Enforce.NamedAttrAs<int>(namedArg);
                     }
+                    else if (namedArg.Name == "BytesParamIndex")
+                    {
+                        Enforce.Data(!bytesParamIndex.HasValue);
+                        bytesParamIndex = Enforce.NamedAttrAs<short>(namedArg);
+                    }
                     else
                     {
                         Violation.Data();
                     }
                 }
-
-                return new CustomAttr.NativeTypeInfo(
-                    unmanagedType: unmanagedType,
-                    isNullTerminated: isNullTerminated,
-                    isNullNullTerminated: isNullNullTerminated,
-                    sizeParamIndex: sizeParamIndex,
-                    arraySubType: arraySubType,
-                    sizeConst: sizeConst);
+                return new NativeArrayInfo(sizeParamIndex, sizeConst, bytesParamIndex);
             }
 
             if (attrName == new NamespaceAndName("System", "ObsoleteAttribute"))
@@ -208,6 +187,13 @@ namespace JsonWin32Generator
                 Enforce.AttrFixedArgCount(attrName, attrArgs, 1);
                 Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
                 return new CustomAttr.Obsolete(Enforce.FixedAttrAs<string>(attrArgs.FixedArguments[0]));
+            }
+
+            if (attrName == new NamespaceAndName("System", "FlagsAttribute"))
+            {
+                Enforce.AttrFixedArgCount(attrName, attrArgs, 0);
+                Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
+                return CustomAttr.Flags.Instance;
             }
 
             if (attrName == new NamespaceAndName("System.Runtime.InteropServices", "GuidAttribute"))
@@ -249,7 +235,35 @@ namespace JsonWin32Generator
             {
                 Enforce.AttrFixedArgCount(attrName, attrArgs, 0);
                 Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
-                return CustomAttr.GuidConstAttribute.Instance;
+                return CustomAttr.GuidConst.Instance;
+            }
+
+            if (attrName == new NamespaceAndName("Windows.Win32.Interop", "NotNullTerminated"))
+            {
+                Enforce.AttrFixedArgCount(attrName, attrArgs, 0);
+                Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
+                return CustomAttr.NotNullTerminated.Instance;
+            }
+
+            if (attrName == new NamespaceAndName("Windows.Win32.Interop", "NullNullTerminated"))
+            {
+                Enforce.AttrFixedArgCount(attrName, attrArgs, 0);
+                Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
+                return CustomAttr.NullNullTerminated.Instance;
+            }
+
+            if (attrName == new NamespaceAndName("Windows.Win32.Interop", "RetValAttribute"))
+            {
+                Enforce.AttrFixedArgCount(attrName, attrArgs, 0);
+                Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
+                return CustomAttr.RetVal.Instance;
+            }
+
+            if (attrName == new NamespaceAndName("Windows.Win32.Interop", "FreeWithAttribute"))
+            {
+                Enforce.AttrFixedArgCount(attrName, attrArgs, 1);
+                Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
+                return new CustomAttr.FreeWith(Enforce.FixedAttrAs<string>(attrArgs.FixedArguments[0]));
             }
 
             throw new NotImplementedException(Fmt.In($"unhandled custom attribute \"{attrName.Namespace}\", \"{attrName.Name}\""));
@@ -264,29 +278,20 @@ namespace JsonWin32Generator
             }
         }
 
-        internal class NativeTypeInfo : CustomAttr
+        internal class NativeArrayInfo : CustomAttr
         {
-            internal NativeTypeInfo(UnmanagedType unmanagedType, bool isNullTerminated, bool isNullNullTerminated, short? sizeParamIndex, UnmanagedType? arraySubType, int? sizeConst)
+            internal NativeArrayInfo(short? sizeParamIndex, int? sizeConst, short? bytesParamIndex)
             {
-                this.UnmanagedType = unmanagedType;
-                this.IsNullTerminated = isNullTerminated;
-                this.IsNullNullTerminated = isNullNullTerminated;
                 this.SizeParamIndex = sizeParamIndex;
-                this.ArraySubType = arraySubType;
                 this.SizeConst = sizeConst;
+                this.BytesParamIndex = BytesParamIndex;
             }
-
-            internal UnmanagedType UnmanagedType { get; }
-
-            internal bool IsNullTerminated { get; }
-
-            internal bool IsNullNullTerminated { get; }
 
             internal short? SizeParamIndex { get; }
 
-            internal UnmanagedType? ArraySubType { get; }
-
             internal int? SizeConst { get; }
+
+            internal short? BytesParamIndex { get; }
         }
 
         internal class Obsolete : CustomAttr
@@ -297,6 +302,15 @@ namespace JsonWin32Generator
             }
 
             internal string Message { get; }
+        }
+
+        internal class Flags : CustomAttr
+        {
+            internal static readonly Flags Instance = new Flags();
+
+            internal Flags()
+            {
+            }
         }
 
         internal class Guid : CustomAttr
@@ -346,13 +360,50 @@ namespace JsonWin32Generator
             }
         }
 
-        internal class GuidConstAttribute : CustomAttr
+        internal class GuidConst : CustomAttr
         {
-            internal static readonly GuidConstAttribute Instance = new GuidConstAttribute();
+            internal static readonly GuidConst Instance = new GuidConst();
 
-            private GuidConstAttribute()
+            private GuidConst()
             {
             }
+        }
+
+        internal class NotNullTerminated : CustomAttr
+        {
+            internal static readonly NotNullTerminated Instance = new NotNullTerminated();
+
+            private NotNullTerminated()
+            {
+            }
+        }
+
+        internal class NullNullTerminated : CustomAttr
+        {
+            internal static readonly NullNullTerminated Instance = new NullNullTerminated();
+
+            private NullNullTerminated()
+            {
+            }
+        }
+
+        internal class RetVal : CustomAttr
+        {
+            internal static readonly RetVal Instance = new RetVal();
+
+            private RetVal()
+            {
+            }
+        }
+
+        internal class FreeWith : CustomAttr
+        {
+            internal FreeWith(string name)
+            {
+                this.Name = name;
+            }
+
+            internal string Name { get; }
         }
     }
 }

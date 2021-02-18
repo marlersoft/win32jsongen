@@ -285,17 +285,11 @@ namespace JsonWin32Generator
                 {
                     // we already assume "const" on all constant values where this matters (i.e. string literals)
                 }
-                else if (attr is CustomAttr.NativeTypeInfo nativeTypeInfo)
-                {
-                    // we already assume null-termination on all constant string literals
-                    Enforce.Data(nativeTypeInfo.UnmanagedType == UnmanagedType.LPWStr);
-                    Enforce.Data(nativeTypeInfo.IsNullTerminated);
-                }
                 else if (attr is CustomAttr.Obsolete obsolete)
                 {
                     jsonAttributes.Add(Fmt.In($"{{\"Kind\":\"Obsolete\",\"Message\":\"{obsolete.Message}\"}}"));
                 }
-                else if (attr is CustomAttr.GuidConstAttribute guidConstAttr)
+                else if (attr is CustomAttr.GuidConst)
                 {
                     isGuidConst = true;
                 }
@@ -349,6 +343,7 @@ namespace JsonWin32Generator
             string? guid = null;
             string? freeFuncAttr = null;
             bool isNativeTypedef = false;
+            bool isFlags = false;
 
             foreach (CustomAttributeHandle attrHandle in typeInfo.Def.GetCustomAttributes())
             {
@@ -366,6 +361,11 @@ namespace JsonWin32Generator
                 else if (attr is CustomAttr.NativeTypedef)
                 {
                     isNativeTypedef = true;
+                }
+                else if (attr is CustomAttr.Flags)
+                {
+                    Enforce.Data(typeInfo.BaseTypeName == new NamespaceAndName("System", "Enum"));
+                    isFlags = true;
                 }
                 else if (attr is CustomAttr.UnmanagedFunctionPointer)
                 {
@@ -404,7 +404,7 @@ namespace JsonWin32Generator
                 Enforce.Data(guid == null);
                 Enforce.Data(freeFuncAttr == null);
                 Enforce.Data(attrs.Layout == TypeLayoutKind.Auto);
-                this.GenerateEnum(writer, typeInfo);
+                this.GenerateEnum(writer, typeInfo, isFlags);
             }
             else if (typeInfo.BaseTypeName == new NamespaceAndName("System", "ValueType"))
             {
@@ -491,9 +491,10 @@ namespace JsonWin32Generator
             Enforce.Data(typeInfo.NestedTypeCount == 0);
         }
 
-        private void GenerateEnum(TabWriter writer, TypeGenInfo typeInfo)
+        private void GenerateEnum(TabWriter writer, TypeGenInfo typeInfo, bool isFlags)
         {
             writer.WriteLine(",\"Kind\":\"Enum\"");
+            writer.WriteLine(",\"Flags\":{0}", isFlags.Json());
             writer.WriteLine(",\"Values\":[");
             writer.Tab();
             string valueElemPrefix = string.Empty;
@@ -584,16 +585,13 @@ namespace JsonWin32Generator
                     {
                         jsonAttributes.Add("\"Const\"");
                     }
-                    else if (attr is CustomAttr.NativeTypeInfo nativeTypeInfo)
+                    else if (attr is CustomAttr.NotNullTerminated)
                     {
-                        if (nativeTypeInfo.UnmanagedType == UnmanagedType.LPArray)
-                        {
-                            fieldType = new TypeRef.LPArray(nativeTypeInfo, fieldType);
-                        }
-                        else
-                        {
-                            fieldType = new TypeRef.LPStr(nativeTypeInfo, fieldType);
-                        }
+                        jsonAttributes.Add("\"NotNullTerminated\"");
+                    }
+                    else if (attr is CustomAttr.NullNullTerminated)
+                    {
+                        jsonAttributes.Add("\"NullNullTerminated\"");
                     }
                     else
                     {
@@ -797,16 +795,27 @@ namespace JsonWin32Generator
                     {
                         jsonAttributes.Add("\"ComOutPtr\"");
                     }
-                    else if (attr is CustomAttr.NativeTypeInfo nativeTypeInfo)
+                    else if (attr is CustomAttr.NativeArrayInfo nativeArrayInfo)
                     {
-                        if (nativeTypeInfo.UnmanagedType == UnmanagedType.LPArray)
-                        {
-                            paramType = new TypeRef.LPArray(nativeTypeInfo, paramType);
-                        }
-                        else
-                        {
-                            paramType = new TypeRef.LPStr(nativeTypeInfo, paramType);
-                        }
+                        paramType = new TypeRef.LPArray(nativeArrayInfo, paramType);
+                    }
+                    else if (attr is CustomAttr.NotNullTerminated)
+                    {
+                        jsonAttributes.Add("\"NotNullTerminated\"");
+                    }
+                    else if (attr is CustomAttr.NullNullTerminated)
+                    {
+                        jsonAttributes.Add("\"NullNullTerminated\"");
+                    }
+                    else if (attr is CustomAttr.RetVal)
+                    {
+                        jsonAttributes.Add("\"RetVal\"");
+                    }
+                    else if (attr is CustomAttr.FreeWith freeWith)
+                    {
+                        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                        Console.WriteLine("TODO: FreeWith '{0}'", freeWith.Name);
+                        // TODO: What to do with this?  All Attrs so far are just strings
                     }
                     else
                     {
