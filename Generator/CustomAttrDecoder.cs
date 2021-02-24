@@ -238,14 +238,14 @@ namespace JsonWin32Generator
                 return CustomAttr.GuidConst.Instance;
             }
 
-            if (attrName == new NamespaceAndName("Windows.Win32.Interop", "NotNullTerminated"))
+            if (attrName == new NamespaceAndName("Windows.Win32.Interop", "NotNullTerminatedAttribute"))
             {
                 Enforce.AttrFixedArgCount(attrName, attrArgs, 0);
                 Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
                 return CustomAttr.NotNullTerminated.Instance;
             }
 
-            if (attrName == new NamespaceAndName("Windows.Win32.Interop", "NullNullTerminated"))
+            if (attrName == new NamespaceAndName("Windows.Win32.Interop", "NullNullTerminatedAttribute"))
             {
                 Enforce.AttrFixedArgCount(attrName, attrArgs, 0);
                 Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
