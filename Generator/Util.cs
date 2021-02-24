@@ -12,7 +12,6 @@ namespace JsonWin32Generator
     using System.IO;
     using System.Reflection;
     using System.Reflection.Metadata;
-    using System.Runtime.InteropServices;
 
     internal record NamespaceAndName(string Namespace, string Name);
 

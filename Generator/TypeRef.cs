@@ -7,7 +7,6 @@ namespace JsonWin32Generator
     using System;
     using System.Globalization;
     using System.Reflection.Metadata;
-    using System.Runtime.InteropServices;
     using System.Text;
 
     internal abstract class TypeRef
@@ -33,21 +32,25 @@ namespace JsonWin32Generator
             {
                 return pointerTo.ChildType;
             }
+
             if (object.ReferenceEquals(this, Primitive.IntPtr))
             {
                 return Primitive.Void;
             }
+
             if (this is TypeRef.User userType)
             {
                 if (userType.Info.Fqn == "Windows.Win32.SystemServices.PSTR")
                 {
                     return TypeRef.Primitive.Byte;
                 }
+
                 if (userType.Info.Fqn == "Windows.Win32.SystemServices.PWSTR")
                 {
                     return TypeRef.Primitive.Char;
                 }
             }
+
             throw Violation.Data();
         }
 
