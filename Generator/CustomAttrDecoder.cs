@@ -9,7 +9,6 @@ namespace JsonWin32Generator
     using System;
     using System.Collections.Generic;
     using System.Reflection.Metadata;
-    using System.Runtime.InteropServices;
 
     internal class CustomAttrDecoder : ICustomAttributeTypeProvider<CustomAttrType>
     {
@@ -41,7 +40,7 @@ namespace JsonWin32Generator
                 return CustomAttrType.Int32;
             }
 
-            throw new NotImplementedException("Only string and bool primitive types have been implemented for custom attributes");
+            throw new NotImplementedException(Fmt.In($"convert PrimitiveTypeCode.{code} to CustomAttrType has not been implemented"));
         }
 
         public CustomAttrType GetSystemType() => CustomAttrType.SystemType;
@@ -83,12 +82,12 @@ namespace JsonWin32Generator
 
         public PrimitiveTypeCode GetUnderlyingEnumType(CustomAttrType type)
         {
-            if (object.ReferenceEquals(type, CustomAttrType.CallConv))
+            if (type == CustomAttrType.CallConv)
             {
                 return PrimitiveTypeCode.Int32; // !!!!!!!! TODO: is this right???? What is this doing???
             }
 
-            if (object.ReferenceEquals(type, CustomAttrType.UnmanagedType))
+            if (type == CustomAttrType.UnmanagedType)
             {
                 return PrimitiveTypeCode.Int32; // !!!!!!!! TODO: is this right???? What is this doing???
             }
@@ -96,39 +95,36 @@ namespace JsonWin32Generator
             throw new NotImplementedException();
         }
 
-        public bool IsSystemType(CustomAttrType type) => object.ReferenceEquals(type, CustomAttrType.SystemType);
+        public bool IsSystemType(CustomAttrType type) => type == CustomAttrType.SystemType;
     }
 
-    internal class CustomAttrType
+    internal enum CustomAttrType
     {
-        internal static readonly CustomAttrType Bool = new CustomAttrType();
+        Bool,
+        Int16,
+        Int32,
+        UnmanagedType,
+        CallConv,
+        SystemType,
+        Str,
+    }
 
-        internal static readonly CustomAttrType Int16 = new CustomAttrType();
-
-        internal static readonly CustomAttrType Int32 = new CustomAttrType();
-
-        internal static readonly CustomAttrType UnmanagedType = new CustomAttrType();
-
-        internal static readonly CustomAttrType CallConv = new CustomAttrType();
-
-        internal static readonly CustomAttrType SystemType = new CustomAttrType();
-
-        internal static readonly CustomAttrType Str = new CustomAttrType();
-
+    internal static class CustomAttrTypeMap
+    {
         private static readonly Dictionary<Type, CustomAttrType> ClrTypeToCustomAttrTypeMap = new Dictionary<Type, CustomAttrType>();
 
-        static CustomAttrType()
+        static CustomAttrTypeMap()
         {
-            ClrTypeToCustomAttrTypeMap.Add(typeof(bool), Bool);
-            ClrTypeToCustomAttrTypeMap.Add(typeof(short), Int16);
-            ClrTypeToCustomAttrTypeMap.Add(typeof(int), Int32);
-            ClrTypeToCustomAttrTypeMap.Add(typeof(string), Str);
-            ClrTypeToCustomAttrTypeMap.Add(typeof(System.Runtime.InteropServices.UnmanagedType), UnmanagedType);
+            ClrTypeToCustomAttrTypeMap.Add(typeof(bool), CustomAttrType.Bool);
+            ClrTypeToCustomAttrTypeMap.Add(typeof(short), CustomAttrType.Int16);
+            ClrTypeToCustomAttrTypeMap.Add(typeof(int), CustomAttrType.Int32);
+            ClrTypeToCustomAttrTypeMap.Add(typeof(string), CustomAttrType.Str);
+            ClrTypeToCustomAttrTypeMap.Add(typeof(System.Runtime.InteropServices.UnmanagedType), CustomAttrType.UnmanagedType);
         }
 
-        internal static CustomAttrType ToCustomAttrType(Type type)
+        internal static CustomAttrType FromType(this Type type)
         {
-            if (ClrTypeToCustomAttrTypeMap.TryGetValue(type, out CustomAttrType? result))
+            if (ClrTypeToCustomAttrTypeMap.TryGetValue(type, out CustomAttrType result))
             {
                 return result;
             }

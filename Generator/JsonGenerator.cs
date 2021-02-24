@@ -126,7 +126,7 @@ namespace JsonWin32Generator
 
             foreach (Api api in generator.apiNamespaceMap.Values)
             {
-                string filepath = Path.Combine(outDir, api.BaseFileName);
+                string filepath = Path.Combine(outDir, api.Name + ".json");
                 using var fileStream = new FileStream(filepath, FileMode.Create, FileAccess.Write, FileShare.Read);
                 using var streamWriter = new StreamWriter(fileStream, Encoding.UTF8);
                 var writer = new TabWriter(streamWriter);

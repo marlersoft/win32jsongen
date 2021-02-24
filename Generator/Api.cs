@@ -16,18 +16,13 @@ namespace JsonWin32Generator
                 @namespace.StartsWith(Metadata.WindowsWin32NamespacePrefix, StringComparison.Ordinal),
                 Fmt.In($"unexpected namespace '{@namespace}', expected it to start with '{Metadata.WindowsWin32NamespacePrefix}'"));
             this.Name = @namespace[Metadata.WindowsWin32NamespacePrefix.Length..];
-            this.BaseFileName = this.Name + ".json";
         }
 
         internal string Name { get; }
 
-        internal string BaseFileName { get; }
-
         internal TypeGenInfoSet TopLevelTypes { get; } = new TypeGenInfoSet();
 
         internal Dictionary<string, string> TypeNameFqnMap { get; } = new Dictionary<string, string>();
-
-        internal HashSet<TypeGenInfo> TypeImports { get; } = new HashSet<TypeGenInfo>();
 
         internal FieldDefinitionHandleCollection? Constants { get; set; }
 

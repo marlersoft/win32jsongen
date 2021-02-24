@@ -238,8 +238,8 @@ namespace JsonWin32Generator
 
         internal static T FixedAttrAs<T>(CustomAttributeTypedArgument<CustomAttrType> attr_value)
         {
-            CustomAttrType expectedType = CustomAttrType.ToCustomAttrType(typeof(T));
-            if (object.ReferenceEquals(attr_value.Type, expectedType))
+            CustomAttrType expectedType = CustomAttrTypeMap.FromType(typeof(T));
+            if (attr_value.Type == expectedType)
             {
                 return (T)attr_value.Value!;
             }
@@ -249,8 +249,8 @@ namespace JsonWin32Generator
 
         internal static T NamedAttrAs<T>(CustomAttributeNamedArgument<CustomAttrType> attr_value)
         {
-            CustomAttrType expectedType = CustomAttrType.ToCustomAttrType(typeof(T));
-            if (object.ReferenceEquals(attr_value.Type, expectedType))
+            CustomAttrType expectedType = CustomAttrTypeMap.FromType(typeof(T));
+            if (attr_value.Type == expectedType)
             {
                 return (T)attr_value.Value!;
             }
