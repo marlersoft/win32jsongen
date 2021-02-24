@@ -179,6 +179,7 @@ namespace JsonWin32Generator
                         Violation.Data();
                     }
                 }
+
                 return new NativeArrayInfo(sizeParamIndex, sizeConst, bytesParamIndex);
             }
 
@@ -284,7 +285,7 @@ namespace JsonWin32Generator
             {
                 this.SizeParamIndex = sizeParamIndex;
                 this.SizeConst = sizeConst;
-                this.BytesParamIndex = BytesParamIndex;
+                this.BytesParamIndex = bytesParamIndex;
             }
 
             internal short? SizeParamIndex { get; }
