@@ -25,6 +25,11 @@ namespace JsonWin32Generator
                 return CustomAttrType.Bool;
             }
 
+            if (code == PrimitiveTypeCode.Byte)
+            {
+                return CustomAttrType.Byte;
+            }
+
             if (code == PrimitiveTypeCode.String)
             {
                 return CustomAttrType.Str;
@@ -35,9 +40,19 @@ namespace JsonWin32Generator
                 return CustomAttrType.Int16;
             }
 
+            if (code == PrimitiveTypeCode.UInt16)
+            {
+                return CustomAttrType.UInt16;
+            }
+
             if (code == PrimitiveTypeCode.Int32)
             {
                 return CustomAttrType.Int32;
+            }
+
+            if (code == PrimitiveTypeCode.UInt32)
+            {
+                return CustomAttrType.UInt32;
             }
 
             throw new NotImplementedException(Fmt.In($"convert PrimitiveTypeCode.{code} to CustomAttrType has not been implemented"));
@@ -101,8 +116,11 @@ namespace JsonWin32Generator
     internal enum CustomAttrType
     {
         Bool,
+        Byte,
         Int16,
+        UInt16,
         Int32,
+        UInt32,
         UnmanagedType,
         CallConv,
         SystemType,
@@ -116,8 +134,11 @@ namespace JsonWin32Generator
         static CustomAttrTypeMap()
         {
             ClrTypeToCustomAttrTypeMap.Add(typeof(bool), CustomAttrType.Bool);
+            ClrTypeToCustomAttrTypeMap.Add(typeof(byte), CustomAttrType.Byte);
             ClrTypeToCustomAttrTypeMap.Add(typeof(short), CustomAttrType.Int16);
+            ClrTypeToCustomAttrTypeMap.Add(typeof(ushort), CustomAttrType.UInt16);
             ClrTypeToCustomAttrTypeMap.Add(typeof(int), CustomAttrType.Int32);
+            ClrTypeToCustomAttrTypeMap.Add(typeof(uint), CustomAttrType.UInt32);
             ClrTypeToCustomAttrTypeMap.Add(typeof(string), CustomAttrType.Str);
             ClrTypeToCustomAttrTypeMap.Add(typeof(System.Runtime.InteropServices.UnmanagedType), CustomAttrType.UnmanagedType);
         }
@@ -193,11 +214,22 @@ namespace JsonWin32Generator
                 return CustomAttr.Flags.Instance;
             }
 
-            if (attrName == new NamespaceAndName("System.Runtime.InteropServices", "GuidAttribute"))
+            if (attrName == new NamespaceAndName("Windows.Win32.Interop", "GuidAttribute"))
             {
-                Enforce.AttrFixedArgCount(attrName, attrArgs, 1);
+                Enforce.AttrFixedArgCount(attrName, attrArgs, 11);
                 Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
-                return new CustomAttr.Guid(Enforce.FixedAttrAs<string>(attrArgs.FixedArguments[0]));
+                return new CustomAttr.Guid(new System.Guid(
+                    Enforce.FixedAttrAs<uint>(attrArgs.FixedArguments[0]),
+                    Enforce.FixedAttrAs<ushort>(attrArgs.FixedArguments[1]),
+                    Enforce.FixedAttrAs<ushort>(attrArgs.FixedArguments[2]),
+                    Enforce.FixedAttrAs<byte>(attrArgs.FixedArguments[3]),
+                    Enforce.FixedAttrAs<byte>(attrArgs.FixedArguments[4]),
+                    Enforce.FixedAttrAs<byte>(attrArgs.FixedArguments[5]),
+                    Enforce.FixedAttrAs<byte>(attrArgs.FixedArguments[6]),
+                    Enforce.FixedAttrAs<byte>(attrArgs.FixedArguments[7]),
+                    Enforce.FixedAttrAs<byte>(attrArgs.FixedArguments[8]),
+                    Enforce.FixedAttrAs<byte>(attrArgs.FixedArguments[9]),
+                    Enforce.FixedAttrAs<byte>(attrArgs.FixedArguments[10])).ToString());
             }
 
             if (attrName == new NamespaceAndName("Windows.Win32.Interop", "RAIIFreeAttribute"))
