@@ -49,6 +49,19 @@ namespace JsonWin32Generator
                 {
                     return TypeRef.Primitive.Char;
                 }
+
+                // This is the type of a parameter for PxeProviderSetAttribute that changes dynamically depending on another
+                // parameter, so we'll just default to representing it as a Byte array.
+                if (userType.Info.Fqn == "Windows.Win32.WindowsDeploymentServices.PxeProviderSetAttribute_pParameterBufferFlags")
+                {
+                    return TypeRef.Primitive.Byte;
+                }
+                // I think this is an array of bytes based on https://docs.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-getpath
+                // aj: A pointer to an array of bytes that receives the vertex types.
+                if (userType.Info.Fqn == "Windows.Win32.Gdi.GetPath_aj")
+                {
+                    return TypeRef.Primitive.Byte;
+                }
             }
 
             throw Violation.Data();
