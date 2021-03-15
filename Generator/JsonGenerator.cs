@@ -263,18 +263,27 @@ namespace JsonWin32Generator
 
             FieldDefinition fieldDef = this.mr.GetFieldDefinition(fieldDefHandle);
 
-            FieldAttributes expected = FieldAttributes.Public | FieldAttributes.Static | FieldAttributes.Literal | FieldAttributes.HasDefault;
-            if (fieldDef.Attributes != expected)
+            bool hasValue;
+            if (fieldDef.Attributes == (FieldAttributes.Public | FieldAttributes.Static | FieldAttributes.Literal | FieldAttributes.HasDefault))
+            {
+                hasValue = true;
+            }
+            else if (fieldDef.Attributes == (FieldAttributes.Public | FieldAttributes.Static))
+            {
+                hasValue = false;
+            }
+            else
             {
                 throw new InvalidOperationException(Fmt.In(
-                    $"Expected Constant FieldDefinition to have these attributes '{expected}' but got '{fieldDef.Attributes}'"));
+                    $"Unexpected Constant FieldDefinition attributes '{fieldDef.Attributes}'"));
             }
             Enforce.Data(fieldDef.GetOffset() == -1);
             Enforce.Data(fieldDef.GetRelativeVirtualAddress() == 0);
 
             List<string> jsonAttributes = new List<string>();
 
-            bool isGuidConst = false;
+            CustomAttr.Guid? optionalGuidValue = null;
+            CustomAttr.ProperyKey? optionalPropertyKey = null;
 
             // TODO: what is fieldDef.GetMarshallingDescriptor?
             foreach (CustomAttributeHandle attrHandle in fieldDef.GetCustomAttributes())
@@ -288,9 +297,13 @@ namespace JsonWin32Generator
                 {
                     jsonAttributes.Add(Fmt.In($"{{\"Kind\":\"Obsolete\",\"Message\":\"{obsolete.Message}\"}}"));
                 }
-                else if (attr is CustomAttr.GuidConst)
+                else if (attr is CustomAttr.Guid guidValue)
                 {
-                    isGuidConst = true;
+                    optionalGuidValue = guidValue;
+                }
+                else if (attr is CustomAttr.ProperyKey key)
+                {
+                    optionalPropertyKey = key;
                 }
                 else
                 {
@@ -300,18 +313,27 @@ namespace JsonWin32Generator
 
             string name = this.mr.GetString(fieldDef.Name);
             Constant constant = this.mr.GetConstant(fieldDef.GetDefaultValue());
-            string value = constant.ReadConstValue(this.mr);
             writer.WriteLine("\"Name\":\"{0}\"", name);
-            if (isGuidConst)
+            if (optionalGuidValue != null)
             {
-                Enforce.Data(constant.TypeCode == ConstantTypeCode.String);
+                Enforce.Data(!hasValue);
+                Enforce.Data(optionalPropertyKey == null);
                 writer.WriteLine(",\"NativeType\":\"Guid\"");
+                writer.WriteLine(",\"Value\":\"{0}\"", optionalGuidValue.Value);
+            }
+            else if (optionalPropertyKey != null)
+            {
+                Enforce.Data(!hasValue);
+                writer.WriteLine(",\"NativeType\":\"PropertyKey\"");
+                writer.WriteLine(",\"Value\":{{\"Fmtid\":\"{0}\",\"Pid\":{1}}}",
+                    optionalPropertyKey.Fmtid, optionalPropertyKey.Pid);
             }
             else
             {
+                Enforce.Data(hasValue);
                 writer.WriteLine(",\"NativeType\":\"{0}\"", constant.TypeCode.ToPrimitiveTypeCode());
+                writer.WriteLine(",\"Value\":{0}", constant.ReadConstValue(this.mr));
             }
-            writer.WriteLine(",\"Value\":{0}", value);
             WriteJsonArray(writer, ",\"Attrs\":", jsonAttributes, string.Empty);
         }
 

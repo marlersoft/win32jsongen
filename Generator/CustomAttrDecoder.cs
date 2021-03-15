@@ -8,6 +8,7 @@ namespace JsonWin32Generator
 {
     using System;
     using System.Collections.Generic;
+    using System.Collections.Immutable;
     using System.Reflection.Metadata;
 
     internal class CustomAttrDecoder : ICustomAttributeTypeProvider<CustomAttrType>
@@ -218,18 +219,15 @@ namespace JsonWin32Generator
             {
                 Enforce.AttrFixedArgCount(attrName, attrArgs, 11);
                 Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
-                return new CustomAttr.Guid(new System.Guid(
-                    Enforce.FixedAttrAs<uint>(attrArgs.FixedArguments[0]),
-                    Enforce.FixedAttrAs<ushort>(attrArgs.FixedArguments[1]),
-                    Enforce.FixedAttrAs<ushort>(attrArgs.FixedArguments[2]),
-                    Enforce.FixedAttrAs<byte>(attrArgs.FixedArguments[3]),
-                    Enforce.FixedAttrAs<byte>(attrArgs.FixedArguments[4]),
-                    Enforce.FixedAttrAs<byte>(attrArgs.FixedArguments[5]),
-                    Enforce.FixedAttrAs<byte>(attrArgs.FixedArguments[6]),
-                    Enforce.FixedAttrAs<byte>(attrArgs.FixedArguments[7]),
-                    Enforce.FixedAttrAs<byte>(attrArgs.FixedArguments[8]),
-                    Enforce.FixedAttrAs<byte>(attrArgs.FixedArguments[9]),
-                    Enforce.FixedAttrAs<byte>(attrArgs.FixedArguments[10])).ToString());
+                return new CustomAttr.Guid(DecodeGuid(attrArgs.FixedArguments, 0));
+            }
+
+            if (attrName == new NamespaceAndName("Windows.Win32.Interop", "PropertyKeyAttribute"))
+            {
+                Enforce.AttrFixedArgCount(attrName, attrArgs, 12);
+                Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
+                return new CustomAttr.ProperyKey(DecodeGuid(attrArgs.FixedArguments, 0),
+                    Enforce.FixedAttrAs<uint>(attrArgs.FixedArguments[11]));
             }
 
             if (attrName == new NamespaceAndName("Windows.Win32.Interop", "RAIIFreeAttribute"))
@@ -258,13 +256,6 @@ namespace JsonWin32Generator
                 Enforce.AttrFixedArgCount(attrName, attrArgs, 0);
                 Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
                 return CustomAttr.ComOutPtr.Instance;
-            }
-
-            if (attrName == new NamespaceAndName("Windows.Win32.Interop", "GuidConstAttribute"))
-            {
-                Enforce.AttrFixedArgCount(attrName, attrArgs, 0);
-                Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
-                return CustomAttr.GuidConst.Instance;
             }
 
             if (attrName == new NamespaceAndName("Windows.Win32.Interop", "NotNullTerminatedAttribute"))
@@ -296,6 +287,23 @@ namespace JsonWin32Generator
             }
 
             throw new NotImplementedException(Fmt.In($"unhandled custom attribute \"{attrName.Namespace}\", \"{attrName.Name}\""));
+        }
+
+        static string DecodeGuid(ImmutableArray<CustomAttributeTypedArgument<CustomAttrType>> fixedArgs, int offset)
+        {
+            return new System.Guid(
+                Enforce.FixedAttrAs<uint>(fixedArgs[offset + 0]),
+                Enforce.FixedAttrAs<ushort>(fixedArgs[offset + 1]),
+                Enforce.FixedAttrAs<ushort>(fixedArgs[offset + 2]),
+                Enforce.FixedAttrAs<byte>(fixedArgs[offset + 3]),
+                Enforce.FixedAttrAs<byte>(fixedArgs[offset + 4]),
+                Enforce.FixedAttrAs<byte>(fixedArgs[offset + 5]),
+                Enforce.FixedAttrAs<byte>(fixedArgs[offset + 6]),
+                Enforce.FixedAttrAs<byte>(fixedArgs[offset + 7]),
+                Enforce.FixedAttrAs<byte>(fixedArgs[offset + 8]),
+                Enforce.FixedAttrAs<byte>(fixedArgs[offset + 9]),
+                Enforce.FixedAttrAs<byte>(fixedArgs[offset + 10])).ToString();
+
         }
 
         internal class Const : CustomAttr
@@ -352,6 +360,19 @@ namespace JsonWin32Generator
             internal string Value { get; }
         }
 
+        internal class ProperyKey : CustomAttr
+        {
+            internal ProperyKey(string fmtid, uint pid)
+            {
+                this.Fmtid = fmtid;
+                this.Pid = pid;
+            }
+
+            internal string Fmtid { get; }
+
+            internal uint Pid { get; }
+        }
+
         internal class RaiiFree : CustomAttr
         {
             internal RaiiFree(string freeFunc)
@@ -385,15 +406,6 @@ namespace JsonWin32Generator
             internal static readonly ComOutPtr Instance = new ComOutPtr();
 
             private ComOutPtr()
-            {
-            }
-        }
-
-        internal class GuidConst : CustomAttr
-        {
-            internal static readonly GuidConst Instance = new GuidConst();
-
-            private GuidConst()
             {
             }
         }
