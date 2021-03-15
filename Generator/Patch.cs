@@ -12,6 +12,16 @@ namespace JsonWin32Generator
 
     internal abstract class PatchConfig
     {
+        internal static readonly Const[] Consts = new Const[]
+        {
+            // https://github.com/microsoft/win32metadata/issues/355
+            new Const(Api: "Direct3D11", Name: "WKPDID_D3DDebugObjectName", Duplicated: true),
+            new Const(Api: "Direct3D11", Name: "WKPDID_D3DDebugObjectNameW", Duplicated: true),
+            new Const(Api: "Direct3D11", Name: "WKPDID_CommentStringW", Duplicated: true),
+            new Const(Api: "Direct3D11", Name: "D3D_TEXTURE_LAYOUT_ROW_MAJOR", Duplicated: true),
+            new Const(Api: "Direct3D11", Name: "D3D_TEXTURE_LAYOUT_64KB_STANDARD_SWIZZLE", Duplicated: true),
+        };
+
         internal static readonly Func[] Funcs = new Func[]
         {
         };
@@ -24,6 +34,8 @@ namespace JsonWin32Generator
 
         // Have to disable this warning here because compiler unable to detect when record fields are used
 #pragma warning disable CA1801 // Review unused parameters
+        internal record Const(string Api, string Name, bool Duplicated = false);
+
         internal record Param(string Name, bool Optional = false, bool Const = false);
 
         internal record Func(string Api, string Name, Param[] Params);
@@ -36,6 +48,11 @@ namespace JsonWin32Generator
         internal static Dictionary<string, ApiPatch> CreateApiMap()
         {
             var apiMap = new Dictionary<string, ApiPatch>();
+
+            foreach (Const c in Consts)
+            {
+                apiMap.GetOrCreate(c.Api).ConstMap.Add(c.Name, new ConstPatch(c));
+            }
 
             foreach (Func func in Funcs)
             {
@@ -85,15 +102,18 @@ namespace JsonWin32Generator
 
     internal abstract class Patch
     {
+        internal static readonly PatchConfig.Const EmptyConstConfig = new PatchConfig.Const(Api: string.Empty, Name: string.Empty);
         internal static readonly PatchConfig.Type EmptyTypeConfig = new PatchConfig.Type(Api: string.Empty, Name: string.Empty);
         internal static readonly PatchConfig.Func EmptyFuncConfig = new PatchConfig.Func(Api: string.Empty, Name: string.Empty, Params: Array.Empty<PatchConfig.Param>());
 
+        internal static readonly Dictionary<string, ConstPatch> EmptyConstMap = new Dictionary<string, ConstPatch>();
         internal static readonly Dictionary<string, TypePatch> EmptyTypeMap = new Dictionary<string, TypePatch>();
         internal static readonly Dictionary<string, FuncPatch> EmptyFuncMap = new Dictionary<string, FuncPatch>();
         internal static readonly Dictionary<string, FieldPatch> EmptyFieldMap = new Dictionary<string, FieldPatch>();
         internal static readonly Dictionary<string, ParamPatch> EmptyParamMap = new Dictionary<string, ParamPatch>();
 
-        internal static readonly ApiPatch EmptyApi = new ApiPatch(EmptyTypeMap, EmptyFuncMap);
+        internal static readonly ApiPatch EmptyApi = new ApiPatch(EmptyConstMap, EmptyTypeMap, EmptyFuncMap);
+        internal static readonly ConstPatch EmptyConst = new ConstPatch(EmptyConstConfig);
         internal static readonly TypePatch EmptyType = new TypePatch(EmptyTypeConfig, EmptyFieldMap, EmptyTypeMap);
         internal static readonly ComTypePatch EmptyComType = new ComTypePatch(EmptyTypeConfig, EmptyFuncMap);
         internal static readonly FuncPatch EmptyFunc = new FuncPatch(EmptyFuncConfig, EmptyParamMap);
@@ -106,15 +126,18 @@ namespace JsonWin32Generator
     internal class ApiPatch : Patch, ITypePatchMap, IFuncPatchMap
     {
         public ApiPatch()
-            : this(new Dictionary<string, TypePatch>(), new Dictionary<string, FuncPatch>())
+            : this(new Dictionary<string, ConstPatch>(), new Dictionary<string, TypePatch>(), new Dictionary<string, FuncPatch>())
         {
         }
 
-        internal ApiPatch(Dictionary<string, TypePatch> typeMap, Dictionary<string, FuncPatch> funcMap)
+        internal ApiPatch(Dictionary<string, ConstPatch> constMap, Dictionary<string, TypePatch> typeMap, Dictionary<string, FuncPatch> funcMap)
         {
+            this.ConstMap = constMap;
             this.TypeMap = typeMap;
             this.FuncMap = funcMap;
         }
+
+        public Dictionary<string, ConstPatch> ConstMap { get; }
 
         public Dictionary<string, TypePatch> TypeMap { get; }
 
@@ -122,6 +145,11 @@ namespace JsonWin32Generator
 
         internal void SelectSubPatches(PatchCallback callback)
         {
+            foreach (var patch in this.ConstMap.Values)
+            {
+                callback(patch);
+            }
+
             foreach (var patch in this.TypeMap.Values)
             {
                 callback(patch);
@@ -158,6 +186,16 @@ namespace JsonWin32Generator
         {
             public Dictionary<string, FuncPatch> FuncMap => Patch.EmptyFuncMap;
         }
+    }
+
+    internal class ConstPatch : Patch
+    {
+        internal ConstPatch(PatchConfig.Const config)
+        {
+            this.Config = config;
+        }
+
+        internal PatchConfig.Const Config { get; }
     }
 
     internal class TypePatch : Patch

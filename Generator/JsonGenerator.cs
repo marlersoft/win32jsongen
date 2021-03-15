@@ -183,7 +183,7 @@ namespace JsonWin32Generator
                 foreach (FieldDefinitionHandle fieldDef in api.Constants)
                 {
                     writer.Tab();
-                    this.GenerateConst(writer, fieldPrefix, fieldDef);
+                    this.GenerateConst(writer, apiPatch, fieldPrefix, fieldDef);
                     writer.Untab();
                     fieldPrefix = ",";
                 }
@@ -251,8 +251,19 @@ namespace JsonWin32Generator
             writer.WriteLine("}");
         }
 
-        private void GenerateConst(TabWriter writer, string constFieldPrefix, FieldDefinitionHandle fieldDefHandle)
+        private void GenerateConst(TabWriter writer, ApiPatch apiPatch, string constFieldPrefix, FieldDefinitionHandle fieldDefHandle)
         {
+            FieldDefinition fieldDef = this.mr.GetFieldDefinition(fieldDefHandle);
+            string name = this.mr.GetString(fieldDef.Name);
+
+            ConstPatch constPatch = apiPatch.ConstMap.GetValueOrDefault(name, Patch.EmptyConst);
+            if (constPatch.Config.Duplicated)
+            {
+                if (constPatch.ApplyCount == 1)
+                    return;
+            }
+            constPatch.ApplyCount += 1;
+
             writer.WriteLine("{0}{{", constFieldPrefix);
             writer.Tab();
             using var defer = Defer.Do(() =>
@@ -260,8 +271,6 @@ namespace JsonWin32Generator
                 writer.Untab();
                 writer.WriteLine("}");
             });
-
-            FieldDefinition fieldDef = this.mr.GetFieldDefinition(fieldDefHandle);
 
             bool hasValue;
             if (fieldDef.Attributes == (FieldAttributes.Public | FieldAttributes.Static | FieldAttributes.Literal | FieldAttributes.HasDefault))
@@ -311,7 +320,6 @@ namespace JsonWin32Generator
                 }
             }
 
-            string name = this.mr.GetString(fieldDef.Name);
             Constant constant = this.mr.GetConstant(fieldDef.GetDefaultValue());
             writer.WriteLine("\"Name\":\"{0}\"", name);
             if (optionalGuidValue != null)
