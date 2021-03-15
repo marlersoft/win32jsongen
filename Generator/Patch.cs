@@ -20,6 +20,8 @@ namespace JsonWin32Generator
             new Const(Api: "Direct3D11", Name: "WKPDID_CommentStringW", Duplicated: true),
             new Const(Api: "Direct3D11", Name: "D3D_TEXTURE_LAYOUT_ROW_MAJOR", Duplicated: true),
             new Const(Api: "Direct3D11", Name: "D3D_TEXTURE_LAYOUT_64KB_STANDARD_SWIZZLE", Duplicated: true),
+            // NOTE: no issue filed for this yet
+            new Const(Api: "UsbDrivers", Name: "WinUSB_TestGuid", Duplicated: true),
         };
 
         internal static readonly Func[] Funcs = new Func[]
