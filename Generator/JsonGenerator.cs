@@ -322,25 +322,27 @@ namespace JsonWin32Generator
                 }
             }
 
-            Constant constant = this.mr.GetConstant(fieldDef.GetDefaultValue());
             writer.WriteLine("\"Name\":\"{0}\"", name);
+            TypeRef constTypeRef = fieldDef.DecodeSignature(this.typeRefDecoder, null);
+            writer.WriteLine(",\"Type\":{0}", constTypeRef.ToJson());
             if (optionalGuidValue != null)
             {
                 Enforce.Data(!hasValue);
                 Enforce.Data(optionalPropertyKey == null);
-                writer.WriteLine(",\"NativeType\":\"Guid\"");
+                writer.WriteLine(",\"ValueType\":\"String\"");
                 writer.WriteLine(",\"Value\":\"{0}\"", optionalGuidValue.Value);
             }
             else if (optionalPropertyKey != null)
             {
                 Enforce.Data(!hasValue);
-                writer.WriteLine(",\"NativeType\":\"PropertyKey\"");
+                writer.WriteLine(",\"ValueType\":\"PropertyKey\"");
                 writer.WriteLine(",\"Value\":{{\"Fmtid\":\"{0}\",\"Pid\":{1}}}", optionalPropertyKey.Fmtid, optionalPropertyKey.Pid);
             }
             else
             {
                 Enforce.Data(hasValue);
-                writer.WriteLine(",\"NativeType\":\"{0}\"", constant.TypeCode.ToPrimitiveTypeCode());
+                Constant constant = this.mr.GetConstant(fieldDef.GetDefaultValue());
+                writer.WriteLine(",\"ValueType\":\"{0}\"", constant.TypeCode.ToPrimitiveTypeCode());
                 writer.WriteLine(",\"Value\":{0}", constant.ReadConstValue(this.mr));
             }
             WriteJsonArray(writer, ",\"Attrs\":", jsonAttributes, string.Empty);
