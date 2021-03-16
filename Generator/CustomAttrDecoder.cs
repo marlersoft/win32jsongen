@@ -226,7 +226,8 @@ namespace JsonWin32Generator
             {
                 Enforce.AttrFixedArgCount(attrName, attrArgs, 12);
                 Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
-                return new CustomAttr.ProperyKey(DecodeGuid(attrArgs.FixedArguments, 0),
+                return new CustomAttr.ProperyKey(
+                    DecodeGuid(attrArgs.FixedArguments, 0),
                     Enforce.FixedAttrAs<uint>(attrArgs.FixedArguments[11]));
             }
 
@@ -289,7 +290,7 @@ namespace JsonWin32Generator
             throw new NotImplementedException(Fmt.In($"unhandled custom attribute \"{attrName.Namespace}\", \"{attrName.Name}\""));
         }
 
-        static string DecodeGuid(ImmutableArray<CustomAttributeTypedArgument<CustomAttrType>> fixedArgs, int offset)
+        internal static string DecodeGuid(ImmutableArray<CustomAttributeTypedArgument<CustomAttrType>> fixedArgs, int offset)
         {
             return new System.Guid(
                 Enforce.FixedAttrAs<uint>(fixedArgs[offset + 0]),
@@ -303,7 +304,6 @@ namespace JsonWin32Generator
                 Enforce.FixedAttrAs<byte>(fixedArgs[offset + 8]),
                 Enforce.FixedAttrAs<byte>(fixedArgs[offset + 9]),
                 Enforce.FixedAttrAs<byte>(fixedArgs[offset + 10])).ToString();
-
         }
 
         internal class Const : CustomAttr

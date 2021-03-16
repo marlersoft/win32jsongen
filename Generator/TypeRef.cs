@@ -56,6 +56,7 @@ namespace JsonWin32Generator
                 {
                     return TypeRef.Primitive.Byte;
                 }
+
                 // I think this is an array of bytes based on https://docs.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-getpath
                 // aj: A pointer to an array of bytes that receives the vertex types.
                 if (userType.Info.Fqn == "Windows.Win32.Gdi.GetPath_aj")

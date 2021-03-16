@@ -260,7 +260,9 @@ namespace JsonWin32Generator
             if (constPatch.Config.Duplicated)
             {
                 if (constPatch.ApplyCount == 1)
+                {
                     return;
+                }
             }
             constPatch.ApplyCount += 1;
 
@@ -333,8 +335,7 @@ namespace JsonWin32Generator
             {
                 Enforce.Data(!hasValue);
                 writer.WriteLine(",\"NativeType\":\"PropertyKey\"");
-                writer.WriteLine(",\"Value\":{{\"Fmtid\":\"{0}\",\"Pid\":{1}}}",
-                    optionalPropertyKey.Fmtid, optionalPropertyKey.Pid);
+                writer.WriteLine(",\"Value\":{{\"Fmtid\":\"{0}\",\"Pid\":{1}}}", optionalPropertyKey.Fmtid, optionalPropertyKey.Pid);
             }
             else
             {
