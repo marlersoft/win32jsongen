@@ -114,6 +114,7 @@ namespace JsonWin32Generator
         public bool IsSystemType(CustomAttrType type) => type == CustomAttrType.SystemType;
     }
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("StyleCop.CSharp.OrderingRules", "SA1201:Elements should appear in the correct order", Justification = "Meh")]
     internal enum CustomAttrType
     {
         Bool,
@@ -287,6 +288,12 @@ namespace JsonWin32Generator
                 return new CustomAttr.FreeWith(Enforce.FixedAttrAs<string>(attrArgs.FixedArguments[0]));
             }
 
+            if (attrName == new NamespaceAndName("Windows.Win32.Interop", "SupportedOSPlatformAttribute"))
+            {
+                Enforce.AttrFixedArgCount(attrName, attrArgs, 1);
+                return new CustomAttr.SupportedOSPlatform(Enforce.FixedAttrAs<string>(attrArgs.FixedArguments[0]));
+            }
+
             throw new NotImplementedException(Fmt.In($"unhandled custom attribute \"{attrName.Namespace}\", \"{attrName.Name}\""));
         }
 
@@ -445,6 +452,16 @@ namespace JsonWin32Generator
             }
 
             internal string Name { get; }
+        }
+
+        internal class SupportedOSPlatform : CustomAttr
+        {
+            internal SupportedOSPlatform(string platformName)
+            {
+                this.PlatformName = platformName;
+            }
+
+            internal string PlatformName { get; }
         }
     }
 }

@@ -376,6 +376,7 @@ namespace JsonWin32Generator
             string? freeFuncAttr = null;
             bool isNativeTypedef = false;
             bool isFlags = false;
+            string? optionalSupportedOsPlatform = null;
 
             foreach (CustomAttributeHandle attrHandle in typeInfo.Def.GetCustomAttributes())
             {
@@ -403,11 +404,17 @@ namespace JsonWin32Generator
                 {
                     // TODO: do something with this
                 }
+                else if (attr is CustomAttr.SupportedOSPlatform supportedOsPlatform)
+                {
+                    Enforce.Data(optionalSupportedOsPlatform == null);
+                    optionalSupportedOsPlatform = supportedOsPlatform.PlatformName;
+                }
                 else
                 {
                     Enforce.Data(false);
                 }
             }
+            writer.WriteLine(",\"Platform\":{0}", optionalSupportedOsPlatform.JsonString());
 
             if (isNativeTypedef)
             {
@@ -736,7 +743,21 @@ namespace JsonWin32Generator
             Enforce.Data(decodedAttrs.HideBySig);
             Enforce.Data(!decodedAttrs.SpecialName);
             Enforce.Data(!decodedAttrs.CheckAccessOnOverride);
-            Enforce.Data(funcDef.GetCustomAttributes().Count == 0);
+
+            string? optionalSupportedOsPlatform = null;
+            foreach (CustomAttributeHandle attrHandle in funcDef.GetCustomAttributes())
+            {
+                CustomAttr attr = CustomAttr.Decode(this.mr, attrHandle);
+                if (attr is CustomAttr.SupportedOSPlatform supportedOsPlatform)
+                {
+                    Enforce.Data(optionalSupportedOsPlatform is null);
+                    optionalSupportedOsPlatform = supportedOsPlatform.PlatformName;
+                }
+                else
+                {
+                    Violation.Data();
+                }
+            }
             Enforce.Data(funcDef.GetDeclarativeSecurityAttributes().Count == 0);
 
             MethodImport methodImport = funcDef.GetImport();
@@ -780,6 +801,11 @@ namespace JsonWin32Generator
                 writer.WriteLine(",\"DllImport\":\"{0}\"", importName);
             }
             writer.WriteLine(",\"ReturnType\":{0}", methodSig.ReturnType.ToJson());
+            if (kind != FuncKind.Ptr)
+            {
+                // When kind == FuncKind.Ptr, the Platform will have already been printed in GenerateType
+                writer.WriteLine(",\"Platform\":{0}", optionalSupportedOsPlatform.JsonString());
+            }
             writer.WriteLine(",\"Params\":[");
             writer.Tab();
             string paramFieldPrefix = string.Empty;
@@ -847,6 +873,7 @@ namespace JsonWin32Generator
                     {
                         // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                         Console.WriteLine("TODO: FreeWith '{0}'", freeWith.Name);
+
                         // TODO: What to do with this?  All Attrs so far are just strings
                     }
                     else
