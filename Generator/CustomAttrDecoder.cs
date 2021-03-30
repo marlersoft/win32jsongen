@@ -294,6 +294,12 @@ namespace JsonWin32Generator
                 return new CustomAttr.SupportedOSPlatform(Enforce.FixedAttrAs<string>(attrArgs.FixedArguments[0]));
             }
 
+            if (attrName == new NamespaceAndName("Windows.Win32.Interop", "AlsoUsableForAttribute"))
+            {
+                Enforce.AttrFixedArgCount(attrName, attrArgs, 1);
+                return new CustomAttr.AlsoUsableFor(Enforce.FixedAttrAs<string>(attrArgs.FixedArguments[0]));
+            }
+
             throw new NotImplementedException(Fmt.In($"unhandled custom attribute \"{attrName.Namespace}\", \"{attrName.Name}\""));
         }
 
@@ -462,6 +468,16 @@ namespace JsonWin32Generator
             }
 
             internal string PlatformName { get; }
+        }
+
+        internal class AlsoUsableFor : CustomAttr
+        {
+            internal AlsoUsableFor(string otherType)
+            {
+                this.OtherType = otherType;
+            }
+
+            internal string OtherType { get; }
         }
     }
 }

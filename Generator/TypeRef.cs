@@ -26,7 +26,7 @@ namespace JsonWin32Generator
 
         internal abstract void FormatTypeJson(StringBuilder builder);
 
-        private TypeRef GetChildType()
+        private TypeRef GetChildType(TypeRefDecoder decoder)
         {
             if (this is TypeRef.PointerTo pointerTo)
             {
@@ -62,6 +62,11 @@ namespace JsonWin32Generator
                 if (userType.Info.Fqn == "Windows.Win32.Gdi.GetPath_aj")
                 {
                     return TypeRef.Primitive.Byte;
+                }
+
+                if (userType.Info.Fqn == "Windows.Win32.Security.PSID")
+                {
+                    return decoder.GetTypeFromNamespaceAndNameInThisModule("Windows.Win32.Security", "SID");
                 }
             }
 
@@ -219,13 +224,13 @@ namespace JsonWin32Generator
 
         internal class LPArray : TypeRef
         {
-            internal LPArray(CustomAttr.NativeArrayInfo info, TypeRef typeRef)
+            internal LPArray(CustomAttr.NativeArrayInfo info, TypeRef typeRef, TypeRefDecoder typeRefDecoder)
             {
                 this.NullNullTerm = false;
                 this.SizeParamIndex = info.SizeParamIndex ?? -1;
                 this.BytesParamIndex = info.BytesParamIndex ?? -1;
                 this.SizeConst = info.SizeConst ?? -1;
-                this.ChildType = typeRef.GetChildType();
+                this.ChildType = typeRef.GetChildType(typeRefDecoder);
             }
 
             internal bool NullNullTerm { get; }

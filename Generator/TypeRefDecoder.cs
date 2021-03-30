@@ -52,14 +52,13 @@ namespace JsonWin32Generator
         public TypeRef GetTypeFromReference(MetadataReader mr, TypeReferenceHandle handle)
         {
             var typeRef = mr.GetTypeReference(handle);
-            var @namespace = mr.GetString(typeRef.Namespace);
-            var name = mr.GetString(typeRef.Name);
+            string @namespace = mr.GetString(typeRef.Namespace);
+            string name = mr.GetString(typeRef.Name);
 
             Enforce.Data(!typeRef.ResolutionScope.IsNil);
             if (typeRef.ResolutionScope.Kind == HandleKind.ModuleDefinition)
             {
-                var api = this.apiNamespaceMap[@namespace];
-                return new TypeRef.User(api.TopLevelTypes[api.TypeNameFqnMap[name]]);
+                return this.GetTypeFromNamespaceAndNameInThisModule(@namespace, name);
             }
             else if (typeRef.ResolutionScope.Kind == HandleKind.TypeReference)
             {
@@ -133,6 +132,12 @@ namespace JsonWin32Generator
             }
 
             throw Violation.Data(Fmt.In($"unhandled typeRef.ResolutionScope.Kind {typeRef.ResolutionScope.Kind}"));
+        }
+
+        public TypeRef GetTypeFromNamespaceAndNameInThisModule(string @namespace, string name)
+        {
+            var api = this.apiNamespaceMap[@namespace];
+            return new TypeRef.User(api.TopLevelTypes[api.TypeNameFqnMap[name]]);
         }
 
         private TypeGenInfo ResolveEnclosingType(MetadataReader mr, TypeReferenceHandle typeRefHandle)

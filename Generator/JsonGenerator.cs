@@ -377,6 +377,7 @@ namespace JsonWin32Generator
             bool isNativeTypedef = false;
             bool isFlags = false;
             string? optionalSupportedOsPlatform = null;
+            string? optionalAlsoUsableFor = null;
 
             foreach (CustomAttributeHandle attrHandle in typeInfo.Def.GetCustomAttributes())
             {
@@ -409,6 +410,11 @@ namespace JsonWin32Generator
                     Enforce.Data(optionalSupportedOsPlatform == null);
                     optionalSupportedOsPlatform = supportedOsPlatform.PlatformName;
                 }
+                else if (attr is CustomAttr.AlsoUsableFor alsoUsableFor)
+                {
+                    Enforce.Data(optionalAlsoUsableFor == null);
+                    optionalAlsoUsableFor = alsoUsableFor.OtherType;
+                }
                 else
                 {
                     Enforce.Data(false);
@@ -420,6 +426,7 @@ namespace JsonWin32Generator
             {
                 Enforce.Data(typeInfo.TypeRefTargetKind == TypeGenInfo.TypeRefKind.Default);
                 writer.WriteLine(",\"Kind\":\"NativeTypedef\"");
+                writer.WriteLine(",\"AlsoUsableFor\":{0}", optionalAlsoUsableFor.JsonString());
                 Enforce.Data(attrs.Layout == TypeLayoutKind.Sequential);
                 Enforce.Data(typeInfo.Def.GetFields().Count == 1);
                 FieldDefinition targetDef = this.mr.GetFieldDefinition(typeInfo.Def.GetFields().First());
@@ -435,6 +442,7 @@ namespace JsonWin32Generator
                 Enforce.Data(typeInfo.TypeRefTargetKind == TypeGenInfo.TypeRefKind.Com);
                 Enforce.Data(attrs.Layout == TypeLayoutKind.Auto);
                 Enforce.Data(freeFuncAttr == null);
+                Enforce.Data(optionalAlsoUsableFor is null);
                 this.GenerateComType(writer, typePatch.ToComPatch(), typeInfo, guid);
             }
             else if (typeInfo.BaseTypeName == new NamespaceAndName("System", "Enum"))
@@ -442,6 +450,7 @@ namespace JsonWin32Generator
                 Enforce.Data(typeInfo.TypeRefTargetKind == TypeGenInfo.TypeRefKind.Default);
                 Enforce.Data(guid == null);
                 Enforce.Data(freeFuncAttr == null);
+                Enforce.Data(optionalAlsoUsableFor is null);
                 Enforce.Data(attrs.Layout == TypeLayoutKind.Auto);
                 this.GenerateEnum(writer, typeInfo, isFlags);
             }
@@ -449,6 +458,7 @@ namespace JsonWin32Generator
             {
                 Enforce.Data(typeInfo.TypeRefTargetKind == TypeGenInfo.TypeRefKind.Default);
                 Enforce.Data(freeFuncAttr == null);
+                Enforce.Data(optionalAlsoUsableFor is null);
                 if (guid == null)
                 {
                     this.GenerateStruct(writer, typePatch, typeInfo, attrs.Layout);
@@ -472,6 +482,7 @@ namespace JsonWin32Generator
                 Enforce.Data(typeInfo.TypeRefTargetKind == TypeGenInfo.TypeRefKind.FunctionPointer);
                 Enforce.Data(guid == null);
                 Enforce.Data(freeFuncAttr == null);
+                Enforce.Data(optionalAlsoUsableFor is null);
                 Enforce.Data(attrs.Layout == TypeLayoutKind.Auto);
                 this.GenerateFunctionPointer(writer, typeInfo);
             }
@@ -855,7 +866,7 @@ namespace JsonWin32Generator
                     }
                     else if (attr is CustomAttr.NativeArrayInfo nativeArrayInfo)
                     {
-                        paramType = new TypeRef.LPArray(nativeArrayInfo, paramType);
+                        paramType = new TypeRef.LPArray(nativeArrayInfo, paramType, this.typeRefDecoder);
                     }
                     else if (attr is CustomAttr.NotNullTerminated)
                     {
