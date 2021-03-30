@@ -291,13 +291,23 @@ namespace JsonWin32Generator
             if (attrName == new NamespaceAndName("Windows.Win32.Interop", "SupportedOSPlatformAttribute"))
             {
                 Enforce.AttrFixedArgCount(attrName, attrArgs, 1);
+                Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
                 return new CustomAttr.SupportedOSPlatform(Enforce.FixedAttrAs<string>(attrArgs.FixedArguments[0]));
             }
 
             if (attrName == new NamespaceAndName("Windows.Win32.Interop", "AlsoUsableForAttribute"))
             {
                 Enforce.AttrFixedArgCount(attrName, attrArgs, 1);
+                Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
                 return new CustomAttr.AlsoUsableFor(Enforce.FixedAttrAs<string>(attrArgs.FixedArguments[0]));
+            }
+
+            if (attrName == new NamespaceAndName("Windows.Win32.Interop", "MemorySizeAttribute"))
+            {
+                Enforce.AttrFixedArgCount(attrName, attrArgs, 0);
+                Enforce.AttrNamedArgCount(attrName, attrArgs, 1);
+                Enforce.Data(attrArgs.NamedArguments[0].Name == "BytesParamIndex");
+                return new CustomAttr.MemorySize(Enforce.NamedAttrAs<short>(attrArgs.NamedArguments[0]));
             }
 
             throw new NotImplementedException(Fmt.In($"unhandled custom attribute \"{attrName.Namespace}\", \"{attrName.Name}\""));
@@ -478,6 +488,16 @@ namespace JsonWin32Generator
             }
 
             internal string OtherType { get; }
+        }
+
+        internal class MemorySize : CustomAttr
+        {
+            internal MemorySize(short bytesParamIndex)
+            {
+                this.BytesParamIndex = bytesParamIndex;
+            }
+
+            internal short BytesParamIndex { get; }
         }
     }
 }

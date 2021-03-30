@@ -886,10 +886,11 @@ namespace JsonWin32Generator
                     }
                     else if (attr is CustomAttr.FreeWith freeWith)
                     {
-                        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                        Console.WriteLine("TODO: FreeWith '{0}'", freeWith.Name);
-
-                        // TODO: What to do with this?  All Attrs so far are just strings
+                        jsonAttributes.Add(Fmt.In($"{{\"FreeWith\":\"{freeWith.Name}\"}}"));
+                    }
+                    else if (attr is CustomAttr.MemorySize memorySize)
+                    {
+                        jsonAttributes.Add(Fmt.In($"{{\"MemorySize\":{memorySize.BytesParamIndex}}}"));
                     }
                     else
                     {
