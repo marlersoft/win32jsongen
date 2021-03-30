@@ -643,6 +643,10 @@ namespace JsonWin32Generator
                     {
                         jsonAttributes.Add("\"NullNullTerminated\"");
                     }
+                    else if (attr is CustomAttr.NativeArrayInfo nativeArrayInfo)
+                    {
+                        fieldType = new TypeRef.LPArray(nativeArrayInfo, fieldType, this.typeRefDecoder);
+                    }
                     else
                     {
                         Violation.Data();
