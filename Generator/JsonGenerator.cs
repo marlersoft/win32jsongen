@@ -886,11 +886,11 @@ namespace JsonWin32Generator
                     }
                     else if (attr is CustomAttr.FreeWith freeWith)
                     {
-                        jsonAttributes.Add(Fmt.In($"{{\"FreeWith\":\"{freeWith.Name}\"}}"));
+                        jsonAttributes.Add(Fmt.In($"{{\"Kind\":\"FreeWith\",\"Func\":\"{freeWith.Name}\"}}"));
                     }
                     else if (attr is CustomAttr.MemorySize memorySize)
                     {
-                        jsonAttributes.Add(Fmt.In($"{{\"MemorySize\":{memorySize.BytesParamIndex}}}"));
+                        jsonAttributes.Add(Fmt.In($"{{\"Kind\":\"MemorySize\",\"BytesParamIndex\":{memorySize.BytesParamIndex}}}"));
                     }
                     else
                     {
