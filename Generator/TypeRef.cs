@@ -11,12 +11,6 @@ namespace JsonWin32Generator
 
     internal abstract class TypeRef
     {
-        internal enum LPStringType
-        {
-            LPStr,
-            LPWStr,
-        }
-
         internal string ToJson()
         {
             StringBuilder builder = new StringBuilder();
