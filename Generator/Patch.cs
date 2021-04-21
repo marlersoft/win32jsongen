@@ -31,8 +31,6 @@ namespace JsonWin32Generator
 
         internal static readonly Type[] Types = new Type[]
         {
-            // patch https://github.com/microsoft/win32metadata/issues/127
-            new Type(Api: "WindowsAccessibility", Name: "IUIAutomation6", Remove: true),
         };
 
         // Have to disable this warning here because compiler unable to detect when record fields are used

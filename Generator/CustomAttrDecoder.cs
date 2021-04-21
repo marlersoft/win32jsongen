@@ -173,25 +173,19 @@ namespace JsonWin32Generator
             if (attrName == new NamespaceAndName("Windows.Win32.Interop", "NativeArrayInfoAttribute"))
             {
                 Enforce.AttrFixedArgCount(attrName, attrArgs, 0);
-                short? sizeParamIndex = null;
-                int? sizeConst = null;
-                short? bytesParamIndex = null;
+                short? countParamIndex = null;
+                int? countConst = null;
                 foreach (CustomAttributeNamedArgument<CustomAttrType> namedArg in attrArgs.NamedArguments)
                 {
-                    if (namedArg.Name == "SizeParamIndex")
+                    if (namedArg.Name == "CountConst")
                     {
-                        Enforce.Data(!sizeParamIndex.HasValue);
-                        sizeParamIndex = Enforce.NamedAttrAs<short>(namedArg);
+                        Enforce.Data(!countConst.HasValue);
+                        countConst = Enforce.NamedAttrAs<int>(namedArg);
                     }
-                    else if (namedArg.Name == "SizeConst")
+                    else if (namedArg.Name == "CountParamIndex")
                     {
-                        Enforce.Data(!sizeConst.HasValue);
-                        sizeConst = Enforce.NamedAttrAs<int>(namedArg);
-                    }
-                    else if (namedArg.Name == "BytesParamIndex")
-                    {
-                        Enforce.Data(!bytesParamIndex.HasValue);
-                        bytesParamIndex = Enforce.NamedAttrAs<short>(namedArg);
+                        Enforce.Data(!countParamIndex.HasValue);
+                        countParamIndex = Enforce.NamedAttrAs<short>(namedArg);
                     }
                     else
                     {
@@ -199,14 +193,23 @@ namespace JsonWin32Generator
                     }
                 }
 
-                return new NativeArrayInfo(sizeParamIndex, sizeConst, bytesParamIndex);
+                return new NativeArrayInfo(countConst, countParamIndex);
             }
 
             if (attrName == new NamespaceAndName("System", "ObsoleteAttribute"))
             {
-                Enforce.AttrFixedArgCount(attrName, attrArgs, 1);
+                string message = string.Empty;
+                if (attrArgs.FixedArguments.Length == 1)
+                {
+                    message = Enforce.FixedAttrAs<string>(attrArgs.FixedArguments[0]);
+                }
+                else
+                {
+                    Enforce.AttrFixedArgCount(attrName, attrArgs, 0);
+                }
+
                 Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
-                return new CustomAttr.Obsolete(Enforce.FixedAttrAs<string>(attrArgs.FixedArguments[0]));
+                return new CustomAttr.Obsolete(message);
             }
 
             if (attrName == new NamespaceAndName("System", "FlagsAttribute"))
@@ -340,18 +343,15 @@ namespace JsonWin32Generator
 
         internal class NativeArrayInfo : CustomAttr
         {
-            internal NativeArrayInfo(short? sizeParamIndex, int? sizeConst, short? bytesParamIndex)
+            internal NativeArrayInfo(int? countConst, short? countParamIndex)
             {
-                this.SizeParamIndex = sizeParamIndex;
-                this.SizeConst = sizeConst;
-                this.BytesParamIndex = bytesParamIndex;
+                this.CountConst = countConst;
+                this.CountParamIndex = countParamIndex;
             }
 
-            internal short? SizeParamIndex { get; }
+            internal int? CountConst { get; }
 
-            internal int? SizeConst { get; }
-
-            internal short? BytesParamIndex { get; }
+            internal short? CountParamIndex { get; }
         }
 
         internal class Obsolete : CustomAttr

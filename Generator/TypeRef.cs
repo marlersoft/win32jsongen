@@ -221,25 +221,22 @@ namespace JsonWin32Generator
             internal LPArray(CustomAttr.NativeArrayInfo info, TypeRef typeRef, TypeRefDecoder typeRefDecoder)
             {
                 this.NullNullTerm = false;
-                this.SizeParamIndex = info.SizeParamIndex ?? -1;
-                this.BytesParamIndex = info.BytesParamIndex ?? -1;
-                this.SizeConst = info.SizeConst ?? -1;
+                this.CountConst = info.CountConst ?? -1;
+                this.CountParamIndex = info.CountParamIndex ?? -1;
                 this.ChildType = typeRef.GetChildType(typeRefDecoder);
             }
 
             internal bool NullNullTerm { get; }
 
-            internal short SizeParamIndex { get; }
+            internal int CountConst { get; }
 
-            internal short BytesParamIndex { get; }
-
-            internal int SizeConst { get; }
+            internal short CountParamIndex { get; }
 
             internal TypeRef ChildType { get; }
 
             internal override void FormatTypeJson(StringBuilder builder)
             {
-                builder.Append($"{{\"Kind\":\"LPArray\",\"NullNullTerm\":{this.NullNullTerm.Json()},\"SizeParamIndex\":{this.SizeParamIndex},\"BytesParamIndex\":{this.BytesParamIndex},\"SizeConst\":{this.SizeConst},\"Child\":");
+                builder.Append($"{{\"Kind\":\"LPArray\",\"NullNullTerm\":{this.NullNullTerm.Json()},\"CountConst\":{this.CountConst},\"CountParamIndex\":{this.CountParamIndex},\"Child\":");
                 this.ChildType.FormatTypeJson(builder);
                 builder.Append('}');
             }

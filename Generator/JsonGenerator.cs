@@ -647,6 +647,10 @@ namespace JsonWin32Generator
                     {
                         fieldType = new TypeRef.LPArray(nativeArrayInfo, fieldType, this.typeRefDecoder);
                     }
+                    else if (attr is CustomAttr.Obsolete obselete)
+                    {
+                        jsonAttributes.Add("\"Obselete\"");
+                    }
                     else
                     {
                         Violation.Data();
@@ -756,7 +760,6 @@ namespace JsonWin32Generator
             }
             Enforce.Data(!decodedAttrs.IsFinal);
             Enforce.Data(decodedAttrs.HideBySig);
-            Enforce.Data(!decodedAttrs.SpecialName);
             Enforce.Data(!decodedAttrs.CheckAccessOnOverride);
 
             string? optionalSupportedOsPlatform = null;
@@ -821,6 +824,19 @@ namespace JsonWin32Generator
                 // When kind == FuncKind.Ptr, the Platform will have already been printed in GenerateType
                 writer.WriteLine(",\"Platform\":{0}", optionalSupportedOsPlatform.JsonString());
             }
+
+            List<string> funcJsonAttrs = new List<string>();
+            if (decodedAttrs.SpecialName)
+            {
+                Enforce.Data(
+                       funcName.StartsWith("get_", StringComparison.Ordinal)
+                    || funcName.StartsWith("put_", StringComparison.Ordinal)
+                    || funcName.StartsWith("add_", StringComparison.Ordinal)
+                    || funcName.StartsWith("remove_", StringComparison.Ordinal));
+                funcJsonAttrs.Add("\"SpecialName\"");
+            }
+            WriteJsonArray(writer, ",\"Attrs\":", funcJsonAttrs, string.Empty);
+
             writer.WriteLine(",\"Params\":[");
             writer.Tab();
             string paramFieldPrefix = string.Empty;
