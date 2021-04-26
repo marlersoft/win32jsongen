@@ -32,7 +32,14 @@ namespace JsonWin32Generator
         {
             Enforce.Invariant(!typeInfo.IsNested);
             this.TopLevelTypes.Add(typeInfo);
-            this.TypeNameFqnMap.Add(typeInfo.Name, typeInfo.Fqn);
+            if (this.TypeNameFqnMap.TryGetValue(typeInfo.Name, out string? fqn))
+            {
+                Enforce.Data(typeInfo.Fqn == fqn);
+            }
+            else
+            {
+                this.TypeNameFqnMap.Add(typeInfo.Name, typeInfo.Fqn);
+            }
         }
     }
 }

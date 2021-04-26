@@ -6,47 +6,51 @@ namespace JsonWin32Generator
 {
     using System;
     using System.Collections.Generic;
+    using System.Linq;
 
     // Note: keeps insertion order (the reason is for predictable code generation)
     internal class TypeGenInfoSet : IEnumerable<TypeGenInfo>
     {
         private readonly List<TypeGenInfo> orderedList;
-        private readonly Dictionary<string, TypeGenInfo> fqnMap;
+        private readonly Dictionary<string, TypeRefInfo> fqnRefInfoMap;
+        private readonly Dictionary<string, OneOrMore<TypeGenInfo>> fqnTypeListMap;
 
         internal TypeGenInfoSet()
         {
             this.orderedList = new List<TypeGenInfo>();
-            this.fqnMap = new Dictionary<string, TypeGenInfo>();
-        }
-
-        internal TypeGenInfo this[string fqn]
-        {
-            get => this.fqnMap[fqn];
+            this.fqnRefInfoMap = new Dictionary<string, TypeRefInfo>();
+            this.fqnTypeListMap = new Dictionary<string, OneOrMore<TypeGenInfo>>();
         }
 
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => throw new InvalidOperationException();
 
         public IEnumerator<TypeGenInfo> GetEnumerator() => this.orderedList.GetEnumerator();
 
+        internal TypeRefInfo LookupRefInfoByFqn(string fqn) => this.fqnRefInfoMap[fqn];
+
+        internal OneOrMore<TypeGenInfo> LookupTypeInfosByFqn(string fqn) => this.fqnTypeListMap[fqn];
+
         internal void Add(TypeGenInfo info)
         {
             this.orderedList.Add(info);
-            this.fqnMap.Add(info.Fqn, info);
-        }
 
-        internal bool AddOrVerifyEqual(TypeGenInfo info)
-        {
-            if (this.fqnMap.TryGetValue(info.Fqn, out TypeGenInfo? other))
+            if (this.fqnRefInfoMap.TryGetValue(info.Fqn, out TypeRefInfo? existing))
             {
-                Enforce.Data(object.ReferenceEquals(info, other), Fmt.In(
-                    $"found 2 types with the same fully-qualified-name '{info.Fqn}' that are not equal"));
-                return false; // already added
+                Enforce.Data(info.RefInfo.Equals(existing));
+            }
+            else
+            {
+                this.fqnRefInfoMap.Add(info.Fqn, info.RefInfo);
             }
 
-            this.Add(info);
-            return true; // newly added
+            if (this.fqnTypeListMap.TryGetValue(info.Fqn, out OneOrMore<TypeGenInfo>? existingList))
+            {
+                existingList.Add(info);
+            }
+            else
+            {
+                this.fqnTypeListMap.Add(info.Fqn, new OneOrMore<TypeGenInfo>(info));
+            }
         }
-
-        internal bool Contains(TypeGenInfo info) => this.fqnMap.ContainsKey(info.Fqn);
     }
 }

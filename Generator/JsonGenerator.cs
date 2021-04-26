@@ -193,6 +193,7 @@ namespace JsonWin32Generator
             writer.WriteLine();
             writer.WriteLine(",\"Types\":[");
             {
+                HashSet<string> typesRegistered = new HashSet<string>();
                 string fieldPrefix = string.Empty;
                 foreach (TypeGenInfo typeInfo in api.TopLevelTypes)
                 {
@@ -209,7 +210,12 @@ namespace JsonWin32Generator
                     this.GenerateType(writer, typePatch, fieldPrefix, typeInfo);
                     writer.Untab();
                     fieldPrefix = ",";
-                    unicodeSet.RegisterTopLevelSymbol(typeInfo.Name);
+
+                    if (!typesRegistered.Contains(typeInfo.Name))
+                    {
+                        typesRegistered.Add(typeInfo.Name);
+                        unicodeSet.RegisterTopLevelSymbol(typeInfo.Name);
+                    }
                 }
             }
             writer.WriteLine("]");
@@ -217,14 +223,19 @@ namespace JsonWin32Generator
             writer.WriteLine(",\"Functions\":[");
             if (api.Funcs != null)
             {
+                HashSet<string> funcsRegistered = new HashSet<string>();
                 string fieldPrefix = string.Empty;
                 foreach (MethodDefinitionHandle funcHandle in api.Funcs)
                 {
                     writer.Tab();
-                    var funcName = this.GenerateFunc(writer, apiPatch, fieldPrefix, funcHandle, FuncKind.Fixed);
+                    var generatedFuncName = this.GenerateFunc(writer, apiPatch, fieldPrefix, funcHandle, FuncKind.Fixed);
                     writer.Untab();
                     fieldPrefix = ",";
-                    unicodeSet.RegisterTopLevelSymbol(funcName);
+                    if (!funcsRegistered.Contains(generatedFuncName))
+                    {
+                        funcsRegistered.Add(generatedFuncName);
+                        unicodeSet.RegisterTopLevelSymbol(generatedFuncName);
+                    }
                 }
             }
             writer.WriteLine("]");
@@ -378,6 +389,7 @@ namespace JsonWin32Generator
             bool isFlags = false;
             string? optionalSupportedOsPlatform = null;
             string? optionalAlsoUsableFor = null;
+            Arch[] archLimits = Array.Empty<Arch>();
 
             foreach (CustomAttributeHandle attrHandle in typeInfo.Def.GetCustomAttributes())
             {
@@ -415,11 +427,17 @@ namespace JsonWin32Generator
                     Enforce.Data(optionalAlsoUsableFor == null);
                     optionalAlsoUsableFor = alsoUsableFor.OtherType;
                 }
+                else if (attr is CustomAttr.SupportedArchitecture supportedArch)
+                {
+                    Enforce.Data(archLimits.Length == 0);
+                    archLimits = CustomAttr.GetArchLimit(supportedArch.ArchFlags);
+                }
                 else
                 {
                     Enforce.Data(false);
                 }
             }
+            writer.WriteLine(",\"Architectures\":[{0}]", archLimits.ToJsonStringElements());
             writer.WriteLine(",\"Platform\":{0}", optionalSupportedOsPlatform.JsonString());
 
             if (isNativeTypedef)
@@ -715,6 +733,7 @@ namespace JsonWin32Generator
         {
             MethodDefinition funcDef = this.mr.GetMethodDefinition(funcHandle);
             string funcName = string.Empty;
+
             if (kind == FuncKind.Ptr)
             {
                 writer.WriteLine(",\"Kind\":\"FunctionPointer\"");
@@ -763,6 +782,7 @@ namespace JsonWin32Generator
             Enforce.Data(!decodedAttrs.CheckAccessOnOverride);
 
             string? optionalSupportedOsPlatform = null;
+            Arch[] archLimits = Array.Empty<Arch>();
             foreach (CustomAttributeHandle attrHandle in funcDef.GetCustomAttributes())
             {
                 CustomAttr attr = CustomAttr.Decode(this.mr, attrHandle);
@@ -770,6 +790,11 @@ namespace JsonWin32Generator
                 {
                     Enforce.Data(optionalSupportedOsPlatform is null);
                     optionalSupportedOsPlatform = supportedOsPlatform.PlatformName;
+                }
+                else if (attr is CustomAttr.SupportedArchitecture supportedArch)
+                {
+                    Enforce.Data(archLimits.Length == 0);
+                    archLimits = CustomAttr.GetArchLimit(supportedArch.ArchFlags);
                 }
                 else
                 {
@@ -821,7 +846,8 @@ namespace JsonWin32Generator
             writer.WriteLine(",\"ReturnType\":{0}", methodSig.ReturnType.ToJson());
             if (kind != FuncKind.Ptr)
             {
-                // When kind == FuncKind.Ptr, the Platform will have already been printed in GenerateType
+                // When kind == FuncKind.Ptr, the Architectures/Platform will have already been printed in GenerateType
+                writer.WriteLine(",\"Architectures\":[{0}]", archLimits.ToJsonStringElements());
                 writer.WriteLine(",\"Platform\":{0}", optionalSupportedOsPlatform.JsonString());
             }
 

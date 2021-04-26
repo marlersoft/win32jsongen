@@ -12,6 +12,7 @@ namespace JsonWin32Generator
     using System.IO;
     using System.Reflection;
     using System.Reflection.Metadata;
+    using System.Text;
 
     internal record NamespaceAndName(string Namespace, string Name);
 
@@ -107,6 +108,24 @@ namespace JsonWin32Generator
         internal static string Json(this bool value) => value ? "true" : "false";
 
         internal static string JsonString<T>(this T? value) => (value == null) ? "null" : Fmt.In($"\"{value}\"");
+
+        internal static string ToJsonStringElements<T>(this T[] elements)
+        {
+            if (elements.Length == 0)
+            {
+                return string.Empty;
+            }
+
+            StringBuilder builder = new StringBuilder();
+            string prefix = string.Empty;
+            foreach (T element in elements)
+            {
+                builder.Append(Fmt.In($"{prefix}\"{element}\""));
+                prefix = ",";
+            }
+
+            return builder.ToString();
+        }
 
         internal static string ReadConstValue(this Constant constant, MetadataReader mr)
         {

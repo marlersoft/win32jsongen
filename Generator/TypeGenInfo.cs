@@ -1,6 +1,8 @@
 ﻿// <copyright file="TypeGenInfo.cs" company="https://github.com/marlersoft">
 // Copyright (c) https://github.com/marlersoft. All rights reserved.
 // </copyright>
+#pragma warning disable SA1402 // File may only contain a single type
+#pragma warning disable SA1201 // Elements should appear in the correct order
 
 namespace JsonWin32Generator
 {
@@ -16,10 +18,7 @@ namespace JsonWin32Generator
         private TypeGenInfo(MetadataReader mr, TypeDefinition def, string apiName, string name, string apiNamespace, string fqn, TypeGenInfo? enclosingType)
         {
             this.Def = def;
-            this.ApiName = apiName;
-            this.Name = name;
             this.ApiNamespace = apiNamespace;
-            this.Fqn = fqn;
             this.EnclosingType = enclosingType;
 
             Enforce.Data(def.GetDeclarativeSecurityAttributes().Count == 0);
@@ -28,10 +27,11 @@ namespace JsonWin32Generator
             Enforce.Data(def.GetMethodImplementations().Count == 0);
             Enforce.Data(def.GetProperties().Count == 0);
 
+            TypeRefKind typeRefTargetKind;
             if (def.BaseType.IsNil)
             {
                 this.BaseTypeName = new NamespaceAndName(string.Empty, string.Empty);
-                this.TypeRefTargetKind = TypeRefKind.Com;
+                typeRefTargetKind = TypeRefKind.Com;
             }
             else
             {
@@ -41,13 +41,20 @@ namespace JsonWin32Generator
                 this.BaseTypeName = new NamespaceAndName(mr.GetString(baseTypeRef.Namespace), mr.GetString(baseTypeRef.Name));
                 if (this.BaseTypeName == new NamespaceAndName("System", "MulticastDelegate"))
                 {
-                    this.TypeRefTargetKind = TypeRefKind.FunctionPointer;
+                    typeRefTargetKind = TypeRefKind.FunctionPointer;
                 }
                 else
                 {
-                    this.TypeRefTargetKind = TypeRefKind.Default;
+                    typeRefTargetKind = TypeRefKind.Default;
                 }
             }
+
+            this.RefInfo = new TypeRefInfo(
+                ApiName: apiName,
+                Name: name,
+                Fqn: fqn,
+                ParentTypeQualifier: (enclosingType == null) ? ParentTypeQualifier.Root : enclosingType.ParentTypeQualifier.Add(name),
+                TypeRefTargetKind: typeRefTargetKind);
         }
 
         public enum TypeRefKind
@@ -57,21 +64,25 @@ namespace JsonWin32Generator
             Com,
         }
 
+        internal TypeRefInfo RefInfo { get; }
+
         internal TypeDefinition Def { get; }
 
-        internal string ApiName { get; }
+        internal string ApiName { get => this.RefInfo.ApiName; }
 
-        internal string Name { get; }
+        internal string Name { get => this.RefInfo.Name; }
 
         internal string ApiNamespace { get; }
 
-        internal string Fqn { get; } // note: all fqn (fully qualified name)'s are unique
+        internal string Fqn { get => this.RefInfo.Fqn; } // note: all fqn (fully qualified name)'s are unique
+
+        internal ParentTypeQualifier ParentTypeQualifier { get => this.RefInfo.ParentTypeQualifier; }
 
         internal TypeGenInfo? EnclosingType { get; }
 
         internal NamespaceAndName BaseTypeName { get; }
 
-        internal TypeRefKind TypeRefTargetKind { get; }
+        internal TypeRefKind TypeRefTargetKind { get => this.RefInfo.TypeRefTargetKind; }
 
         internal bool IsNested
         {
@@ -181,6 +192,47 @@ namespace JsonWin32Generator
             }
 
             return false;
+        }
+    }
+
+    internal record TypeRefInfo(
+        string ApiName,
+        string Name,
+        string Fqn,
+        ParentTypeQualifier ParentTypeQualifier,
+        TypeGenInfo.TypeRefKind TypeRefTargetKind);
+
+    internal class ParentTypeQualifier
+    {
+        public static readonly ParentTypeQualifier Root = new ParentTypeQualifier(null, Array.Empty<string>());
+
+        private Dictionary<string, ParentTypeQualifier>? children;
+
+        private ParentTypeQualifier(ParentTypeQualifier? parent, string[] names)
+        {
+            this.Parent = parent ?? this;
+            this.Names = names;
+        }
+
+        public ParentTypeQualifier Parent { get; }
+
+        public string[] Names { get; }
+
+        public ParentTypeQualifier Add(string name)
+        {
+            if (this.children != null && this.children.TryGetValue(name, out ParentTypeQualifier? existing))
+            {
+                return existing;
+            }
+
+            if (this.children == null)
+            {
+                this.children = new Dictionary<string, ParentTypeQualifier>();
+            }
+
+            ParentTypeQualifier q = new ParentTypeQualifier(this, this.Names.Concat(new string[] { name }).ToArray());
+            this.children.Add(name, q);
+            return q;
         }
     }
 }

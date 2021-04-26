@@ -12,6 +12,7 @@ namespace JsonWin32Generator
 
     internal abstract class PatchConfig
     {
+#pragma warning disable CA1825 // Avoid zero-length array allocations
         internal static readonly Const[] Consts = new Const[]
         {
             // https://github.com/microsoft/win32metadata/issues/355

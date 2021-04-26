@@ -120,12 +120,12 @@ namespace JsonWin32Generator
 
         internal class User : TypeRef
         {
-            internal User(TypeGenInfo info)
+            internal User(TypeRefInfo info)
             {
                 this.Info = info;
             }
 
-            internal TypeGenInfo Info { get; }
+            internal TypeRefInfo Info { get; }
 
             internal override void FormatTypeJson(StringBuilder builder)
             {
@@ -135,13 +135,11 @@ namespace JsonWin32Generator
                     this.Info.Name,
                     this.Info.TypeRefTargetKind,
                     this.Info.ApiName);
-                TypeGenInfo? parentInfo = this.Info.EnclosingType;
                 string prefix = string.Empty;
-                while (parentInfo != null)
+                foreach (string parentTypeQualifier in this.Info.ParentTypeQualifier.Parent.Names)
                 {
-                    builder.AppendFormat(CultureInfo.InvariantCulture, "{0}\"{1}\"", prefix, parentInfo.Name);
+                    builder.AppendFormat(CultureInfo.InvariantCulture, "{0}\"{1}\"", prefix, parentTypeQualifier);
                     prefix = ",";
-                    parentInfo = parentInfo.EnclosingType;
                 }
 
                 builder.Append("]}");

@@ -3,6 +3,7 @@
 // </copyright>
 
 #pragma warning disable SA1402 // File may only contain a single type
+#pragma warning disable SA1201 // Elements should appear in the correct order
 
 namespace JsonWin32Generator
 {
@@ -83,6 +84,14 @@ namespace JsonWin32Generator
                 }
             }
 
+            if (@namespace == "Windows.Win32.Interop")
+            {
+                if (name == "Architecture")
+                {
+                    return CustomAttrType.Architecture;
+                }
+            }
+
             throw new NotImplementedException();
         }
 
@@ -108,6 +117,11 @@ namespace JsonWin32Generator
                 return PrimitiveTypeCode.Int32; // !!!!!!!! TODO: is this right???? What is this doing???
             }
 
+            if (type == CustomAttrType.Architecture)
+            {
+                return PrimitiveTypeCode.Int32;
+            }
+
             throw new NotImplementedException();
         }
 
@@ -127,6 +141,7 @@ namespace JsonWin32Generator
         CallConv,
         SystemType,
         Str,
+        Architecture,
     }
 
     internal static class CustomAttrTypeMap
@@ -143,6 +158,7 @@ namespace JsonWin32Generator
             ClrTypeToCustomAttrTypeMap.Add(typeof(uint), CustomAttrType.UInt32);
             ClrTypeToCustomAttrTypeMap.Add(typeof(string), CustomAttrType.Str);
             ClrTypeToCustomAttrTypeMap.Add(typeof(System.Runtime.InteropServices.UnmanagedType), CustomAttrType.UnmanagedType);
+            ClrTypeToCustomAttrTypeMap.Add(typeof(Architecture), CustomAttrType.Architecture);
         }
 
         internal static CustomAttrType FromType(this Type type)
@@ -156,8 +172,59 @@ namespace JsonWin32Generator
         }
     }
 
+    // This type should be identical to the type defined in win32metadata
+    [Flags]
+    internal enum Architecture
+    {
+        None = 0,
+        X86 = 1,
+        X64 = 2,
+        Arm64 = 4,
+        All = Architecture.X64 | Architecture.X86 | Architecture.Arm64,
+    }
+
+    internal enum Arch
+    {
+        X86,
+        X64,
+        Arm64,
+    }
+
     internal class CustomAttr
     {
+        private static readonly Dictionary<Architecture, Arch[]> ArchArrayCache = new Dictionary<Architecture, Arch[]>();
+
+        internal static Arch[] GetArchLimit(Architecture archFlags)
+        {
+            if (ArchArrayCache.TryGetValue(archFlags, out Arch[]? existing))
+            {
+                return existing;
+            }
+
+            Architecture remainingFlags = archFlags;
+            List<Arch> archList = new List<Arch>();
+            if (ConsumeFlag(ref remainingFlags, Architecture.X86))
+            {
+                archList.Add(Arch.X86);
+            }
+
+            if (ConsumeFlag(ref remainingFlags, Architecture.X64))
+            {
+                archList.Add(Arch.X64);
+            }
+
+            if (ConsumeFlag(ref remainingFlags, Architecture.Arm64))
+            {
+                archList.Add(Arch.Arm64);
+            }
+
+            Enforce.Data(remainingFlags == 0);
+
+            Arch[] archArray = archList.ToArray();
+            ArchArrayCache.Add(archFlags, archArray);
+            return archArray;
+        }
+
         internal static CustomAttr Decode(MetadataReader mr, CustomAttributeHandle attrHandle)
         {
             CustomAttribute attr = mr.GetCustomAttribute(attrHandle);
@@ -313,6 +380,13 @@ namespace JsonWin32Generator
                 return new CustomAttr.MemorySize(Enforce.NamedAttrAs<short>(attrArgs.NamedArguments[0]));
             }
 
+            if (attrName == new NamespaceAndName("Windows.Win32.Interop", "SupportedArchitectureAttribute"))
+            {
+                Enforce.AttrFixedArgCount(attrName, attrArgs, 1);
+                Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
+                return new CustomAttr.SupportedArchitecture(Enforce.FixedAttrAs<Architecture>(attrArgs.FixedArguments[0]));
+            }
+
             throw new NotImplementedException(Fmt.In($"unhandled custom attribute \"{attrName.Namespace}\", \"{attrName.Name}\""));
         }
 
@@ -330,6 +404,17 @@ namespace JsonWin32Generator
                 Enforce.FixedAttrAs<byte>(fixedArgs[offset + 8]),
                 Enforce.FixedAttrAs<byte>(fixedArgs[offset + 9]),
                 Enforce.FixedAttrAs<byte>(fixedArgs[offset + 10])).ToString();
+        }
+
+        private static bool ConsumeFlag(ref Architecture archFlags, Architecture flag)
+        {
+            if ((archFlags & flag) == flag)
+            {
+                archFlags &= ~flag;
+                return true;
+            }
+
+            return false;
         }
 
         internal class Const : CustomAttr
@@ -498,6 +583,16 @@ namespace JsonWin32Generator
             }
 
             internal short BytesParamIndex { get; }
+        }
+
+        internal class SupportedArchitecture : CustomAttr
+        {
+            internal SupportedArchitecture(Architecture archFlags)
+            {
+                this.ArchFlags = archFlags;
+            }
+
+            internal Architecture ArchFlags { get; }
         }
     }
 }

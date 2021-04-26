@@ -27,7 +27,7 @@ namespace JsonWin32Generator
 
         public TypeRef GetPrimitiveType(PrimitiveTypeCode typeCode) => TypeRef.Primitive.Get(typeCode);
 
-        public TypeRef GetTypeFromDefinition(MetadataReader mr, TypeDefinitionHandle handle, byte rawTypeKind) => new TypeRef.User(this.typeMap[handle]);
+        public TypeRef GetTypeFromDefinition(MetadataReader mr, TypeDefinitionHandle handle, byte rawTypeKind) => new TypeRef.User(this.typeMap[handle].RefInfo);
 
         public TypeRef GetByReferenceType(TypeRef from) => throw Violation.Data();
 
@@ -62,9 +62,12 @@ namespace JsonWin32Generator
             }
             else if (typeRef.ResolutionScope.Kind == HandleKind.TypeReference)
             {
-                TypeGenInfo enclosingTypeRef = this.ResolveEnclosingType(mr, (TypeReferenceHandle)typeRef.ResolutionScope);
+                TypeRefInfo enclosingTypeRef = this.ResolveNestedType(
+                    mr,
+                    (TypeReferenceHandle)typeRef.ResolutionScope,
+                    new NestedTypePath(name, null));
                 Enforce.Data(@namespace.Length == 0, "expected nested type to have empty namespace");
-                return new TypeRef.User(enclosingTypeRef.GetNestedTypeByName(name));
+                return new TypeRef.User(enclosingTypeRef);
             }
             else if (typeRef.ResolutionScope.Kind == HandleKind.AssemblyReference)
             {
@@ -137,30 +140,86 @@ namespace JsonWin32Generator
         public TypeRef GetTypeFromNamespaceAndNameInThisModule(string @namespace, string name)
         {
             var api = this.apiNamespaceMap[@namespace];
-            return new TypeRef.User(api.TopLevelTypes[api.TypeNameFqnMap[name]]);
+            return new TypeRef.User(api.TopLevelTypes.LookupRefInfoByFqn(api.TypeNameFqnMap[name]));
         }
 
-        private TypeGenInfo ResolveEnclosingType(MetadataReader mr, TypeReferenceHandle typeRefHandle)
+        private static TypeGenInfo? TryResolveNestedTypePath(TypeGenInfo typeInfo, NestedTypePath nestedTypePath)
         {
-            var typeRef = mr.GetTypeReference(typeRefHandle);
-            var @namespace = mr.GetString(typeRef.Namespace);
-            var name = mr.GetString(typeRef.Name);
+            TypeGenInfo? nestedTypeInfo = typeInfo.TryGetNestedTypeByName(nestedTypePath.Name);
+            if (nestedTypeInfo == null || nestedTypePath.Next == null)
+            {
+                return nestedTypeInfo;
+            }
 
-            Enforce.Data(!typeRef.ResolutionScope.IsNil);
-            if (typeRef.ResolutionScope.Kind == HandleKind.ModuleDefinition)
+            return TryResolveNestedTypePath(nestedTypeInfo, nestedTypePath.Next);
+        }
+
+        private TypeRefInfo ResolveNestedType(MetadataReader mr, TypeReferenceHandle enoclosingTypeRefHandle, NestedTypePath nestedTypePath)
+        {
+            var enclosingTypeRef = mr.GetTypeReference(enoclosingTypeRefHandle);
+            var @namespace = mr.GetString(enclosingTypeRef.Namespace);
+            var enclosingTypeName = mr.GetString(enclosingTypeRef.Name);
+
+            // TODO: file an issue for this?
+            if (enclosingTypeName.EndsWith("____1", StringComparison.Ordinal) || enclosingTypeName.EndsWith("____2", StringComparison.Ordinal))
+            {
+                string newName = enclosingTypeName.Remove(enclosingTypeName.Length - 5);
+                Console.WriteLine("!!! Interpreting '{0}' as '{1}'", enclosingTypeName, newName);
+                enclosingTypeName = newName;
+            }
+
+            if (enclosingTypeRef.ResolutionScope.Kind == HandleKind.TypeReference)
+            {
+                return this.ResolveNestedType(
+                    mr,
+                    (TypeReferenceHandle)enclosingTypeRef.ResolutionScope,
+                    new NestedTypePath(enclosingTypeName, nestedTypePath));
+            }
+
+            Enforce.Data(!enclosingTypeRef.ResolutionScope.IsNil);
+            if (enclosingTypeRef.ResolutionScope.Kind == HandleKind.ModuleDefinition)
             {
                 Api api = this.apiNamespaceMap[@namespace];
-                return api.TopLevelTypes[api.TypeNameFqnMap[name]];
+                OneOrMore<TypeGenInfo> typeInfos = api.TopLevelTypes.LookupTypeInfosByFqn(api.TypeNameFqnMap[enclosingTypeName]);
+                TypeGenInfo? nestedType = TryResolveNestedTypePath(typeInfos.First, nestedTypePath);
+                foreach (TypeGenInfo typeInfo in typeInfos.Others)
+                {
+                    TypeGenInfo? nextNestedType = TryResolveNestedTypePath(typeInfo, nestedTypePath);
+                    if (nextNestedType != null)
+                    {
+                        if (nestedType == null)
+                        {
+                            nestedType = nextNestedType;
+                        }
+                        else
+                        {
+                            Enforce.Data(nestedType.RefInfo.Equals(nextNestedType.RefInfo));
+                        }
+                    }
+                }
+
+                if (nestedType != null)
+                {
+                    return nestedType.RefInfo;
+                }
+
+                throw Violation.Data();
             }
 
-            if (typeRef.ResolutionScope.Kind == HandleKind.TypeReference)
+            throw Violation.Data(Fmt.In($"unhandled typeRef.ResolutionScope.Kind {enclosingTypeRef.ResolutionScope.Kind}"));
+        }
+
+        internal class NestedTypePath
+        {
+            internal NestedTypePath(string name, NestedTypePath? next)
             {
-                TypeGenInfo enclosingTypeRef = this.ResolveEnclosingType(mr, (TypeReferenceHandle)typeRef.ResolutionScope);
-                Enforce.Data(@namespace.Length == 0, "expected nested type to have empty namespace");
-                return enclosingTypeRef.GetNestedTypeByName(name);
+                this.Name = name;
+                this.Next = next;
             }
 
-            throw Violation.Data(Fmt.In($"unhandled typeRef.ResolutionScope.Kind {typeRef.ResolutionScope.Kind}"));
+            internal string Name { get; }
+
+            internal NestedTypePath? Next { get; }
         }
     }
 }
