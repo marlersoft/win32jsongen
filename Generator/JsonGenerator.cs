@@ -604,8 +604,7 @@ namespace JsonWin32Generator
             string kind;
             if (layoutKind == TypeLayoutKind.Explicit)
             {
-                writer.WriteLine(",\"Comment\":\"TODO: Explicit layout data implemented\"");
-                kind = "StructOrUnion";
+                kind = "Union";
             }
             else
             {
@@ -623,6 +622,10 @@ namespace JsonWin32Generator
             foreach (FieldDefinitionHandle fieldDefHandle in typeInfo.Def.GetFields())
             {
                 FieldDefinition fieldDef = this.mr.GetFieldDefinition(fieldDefHandle);
+                if (layoutKind == TypeLayoutKind.Explicit)
+                {
+                    Enforce.Data(fieldDef.GetOffset() == 0);
+                }
                 string fieldName = this.mr.GetString(fieldDef.Name);
                 Enforce.Data(fieldDef.GetRelativeVirtualAddress() == 0);
                 if (fieldDef.Attributes == (FieldAttributes.Public | FieldAttributes.Static | FieldAttributes.Literal | FieldAttributes.HasDefault))
