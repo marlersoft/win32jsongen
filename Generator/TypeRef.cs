@@ -136,7 +136,7 @@ namespace JsonWin32Generator
                     this.Info.TypeRefTargetKind,
                     this.Info.ApiName);
                 string prefix = string.Empty;
-                foreach (string parentTypeQualifier in this.Info.ParentTypeQualifier.Parent.Names)
+                foreach (string parentTypeQualifier in this.Info.ParentTypeQualifier.Qualifiers)
                 {
                     builder.AppendFormat(CultureInfo.InvariantCulture, "{0}\"{1}\"", prefix, parentTypeQualifier);
                     prefix = ",";

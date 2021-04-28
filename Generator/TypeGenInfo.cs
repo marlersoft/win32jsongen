@@ -206,17 +206,17 @@ namespace JsonWin32Generator
     {
         public static readonly ParentTypeQualifier Root = new ParentTypeQualifier(null, Array.Empty<string>());
 
+        private readonly ParentTypeQualifier parent;
+        private readonly string[] names;
         private Dictionary<string, ParentTypeQualifier>? children;
 
         private ParentTypeQualifier(ParentTypeQualifier? parent, string[] names)
         {
-            this.Parent = parent ?? this;
-            this.Names = names;
+            this.parent = parent ?? this;
+            this.names = names;
         }
 
-        public ParentTypeQualifier Parent { get; }
-
-        public string[] Names { get; }
+        public string[] Qualifiers { get => this.parent.names; }
 
         public ParentTypeQualifier Add(string name)
         {
@@ -230,7 +230,7 @@ namespace JsonWin32Generator
                 this.children = new Dictionary<string, ParentTypeQualifier>();
             }
 
-            ParentTypeQualifier q = new ParentTypeQualifier(this, this.Names.Concat(new string[] { name }).ToArray());
+            ParentTypeQualifier q = new ParentTypeQualifier(this, this.names.Concat(new string[] { name }).ToArray());
             this.children.Add(name, q);
             return q;
         }
