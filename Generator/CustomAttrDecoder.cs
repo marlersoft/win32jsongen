@@ -387,6 +387,20 @@ namespace JsonWin32Generator
                 return new CustomAttr.SupportedArchitecture(Enforce.FixedAttrAs<Architecture>(attrArgs.FixedArguments[0]));
             }
 
+            if (attrName == new NamespaceAndName("Windows.Win32.Interop", "ScopedEnumAttribute"))
+            {
+                Enforce.AttrFixedArgCount(attrName, attrArgs, 0);
+                Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
+                return CustomAttr.ScopedEnum.Instance;
+            }
+
+            if (attrName == new NamespaceAndName("Windows.Win32.Interop", "DoNotReleaseAttribute"))
+            {
+                Enforce.AttrFixedArgCount(attrName, attrArgs, 0);
+                Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
+                return CustomAttr.DoNotRelease.Instance;
+            }
+
             throw new NotImplementedException(Fmt.In($"unhandled custom attribute \"{attrName.Namespace}\", \"{attrName.Name}\""));
         }
 
@@ -593,6 +607,24 @@ namespace JsonWin32Generator
             }
 
             internal Architecture ArchFlags { get; }
+        }
+
+        internal class ScopedEnum : CustomAttr
+        {
+            public static readonly ScopedEnum Instance = new ScopedEnum();
+
+            private ScopedEnum()
+            {
+            }
+        }
+
+        internal class DoNotRelease : CustomAttr
+        {
+            public static readonly DoNotRelease Instance = new DoNotRelease();
+
+            private DoNotRelease()
+            {
+            }
         }
     }
 }

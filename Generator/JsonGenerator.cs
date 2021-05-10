@@ -390,6 +390,7 @@ namespace JsonWin32Generator
             string? optionalSupportedOsPlatform = null;
             string? optionalAlsoUsableFor = null;
             Arch[] archLimits = Array.Empty<Arch>();
+            bool scopedEnum = false;
 
             foreach (CustomAttributeHandle attrHandle in typeInfo.Def.GetCustomAttributes())
             {
@@ -432,6 +433,10 @@ namespace JsonWin32Generator
                     Enforce.Data(archLimits.Length == 0);
                     archLimits = CustomAttr.GetArchLimit(supportedArch.ArchFlags);
                 }
+                else if (attr is CustomAttr.ScopedEnum)
+                {
+                    scopedEnum = true;
+                }
                 else
                 {
                     Enforce.Data(false);
@@ -442,6 +447,7 @@ namespace JsonWin32Generator
 
             if (isNativeTypedef)
             {
+                Enforce.Data(scopedEnum == false);
                 Enforce.Data(typeInfo.TypeRefTargetKind == TypeGenInfo.TypeRefKind.Default);
                 writer.WriteLine(",\"Kind\":\"NativeTypedef\"");
                 writer.WriteLine(",\"AlsoUsableFor\":{0}", optionalAlsoUsableFor.JsonString());
@@ -457,6 +463,7 @@ namespace JsonWin32Generator
             }
             else if (typeInfo.Def.BaseType.IsNil)
             {
+                Enforce.Data(scopedEnum == false);
                 Enforce.Data(typeInfo.TypeRefTargetKind == TypeGenInfo.TypeRefKind.Com);
                 Enforce.Data(attrs.Layout == TypeLayoutKind.Auto);
                 Enforce.Data(freeFuncAttr == null);
@@ -470,10 +477,11 @@ namespace JsonWin32Generator
                 Enforce.Data(freeFuncAttr == null);
                 Enforce.Data(optionalAlsoUsableFor is null);
                 Enforce.Data(attrs.Layout == TypeLayoutKind.Auto);
-                this.GenerateEnum(writer, typeInfo, isFlags);
+                this.GenerateEnum(writer, typeInfo, isFlags, scopedEnum);
             }
             else if (typeInfo.BaseTypeName == new NamespaceAndName("System", "ValueType"))
             {
+                Enforce.Data(scopedEnum == false);
                 Enforce.Data(typeInfo.TypeRefTargetKind == TypeGenInfo.TypeRefKind.Default);
                 Enforce.Data(freeFuncAttr == null);
                 Enforce.Data(optionalAlsoUsableFor is null);
@@ -497,6 +505,7 @@ namespace JsonWin32Generator
             }
             else if (typeInfo.BaseTypeName == new NamespaceAndName("System", "MulticastDelegate"))
             {
+                Enforce.Data(scopedEnum == false);
                 Enforce.Data(typeInfo.TypeRefTargetKind == TypeGenInfo.TypeRefKind.FunctionPointer);
                 Enforce.Data(guid == null);
                 Enforce.Data(freeFuncAttr == null);
@@ -559,10 +568,11 @@ namespace JsonWin32Generator
             Enforce.Data(typeInfo.NestedTypeCount == 0);
         }
 
-        private void GenerateEnum(TabWriter writer, TypeGenInfo typeInfo, bool isFlags)
+        private void GenerateEnum(TabWriter writer, TypeGenInfo typeInfo, bool isFlags, bool isScoped)
         {
             writer.WriteLine(",\"Kind\":\"Enum\"");
             writer.WriteLine(",\"Flags\":{0}", isFlags.Json());
+            writer.WriteLine(",\"Scoped\":{0}", isScoped.Json());
             writer.WriteLine(",\"Values\":[");
             writer.Tab();
             string valueElemPrefix = string.Empty;
@@ -936,6 +946,10 @@ namespace JsonWin32Generator
                     else if (attr is CustomAttr.MemorySize memorySize)
                     {
                         jsonAttributes.Add(Fmt.In($"{{\"Kind\":\"MemorySize\",\"BytesParamIndex\":{memorySize.BytesParamIndex}}}"));
+                    }
+                    else if (attr is CustomAttr.DoNotRelease)
+                    {
+                        jsonAttributes.Add("\"DoNotRelease\"");
                     }
                     else
                     {

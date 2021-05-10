@@ -34,12 +34,12 @@ namespace JsonWin32Generator
 
             if (this is TypeRef.User userType)
             {
-                if (userType.Info.Fqn == "Windows.Win32.SystemServices.PSTR")
+                if (userType.Info.Fqn == "Windows.Win32.System.SystemServices.PSTR")
                 {
                     return TypeRef.Primitive.Byte;
                 }
 
-                if (userType.Info.Fqn == "Windows.Win32.SystemServices.PWSTR")
+                if (userType.Info.Fqn == "Windows.Win32.System.SystemServices.PWSTR")
                 {
                     return TypeRef.Primitive.Char;
                 }

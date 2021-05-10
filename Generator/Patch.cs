@@ -15,15 +15,8 @@ namespace JsonWin32Generator
 #pragma warning disable CA1825 // Avoid zero-length array allocations
         internal static readonly Const[] Consts = new Const[]
         {
-            // https://github.com/microsoft/win32metadata/issues/355
-            new Const(Api: "Direct3D11", Name: "WKPDID_D3DDebugObjectName", Duplicated: true),
-            new Const(Api: "Direct3D11", Name: "WKPDID_D3DDebugObjectNameW", Duplicated: true),
-            new Const(Api: "Direct3D11", Name: "WKPDID_CommentStringW", Duplicated: true),
-            new Const(Api: "Direct3D11", Name: "D3D_TEXTURE_LAYOUT_ROW_MAJOR", Duplicated: true),
-            new Const(Api: "Direct3D11", Name: "D3D_TEXTURE_LAYOUT_64KB_STANDARD_SWIZZLE", Duplicated: true),
-
             // NOTE: no issue filed for this yet
-            new Const(Api: "UsbDrivers", Name: "WinUSB_TestGuid", Duplicated: true),
+            new Const(Api: "Devices.Usb", Name: "WinUSB_TestGuid", Duplicated: true),
         };
 
         internal static readonly Func[] Funcs = new Func[]
