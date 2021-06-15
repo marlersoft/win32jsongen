@@ -687,6 +687,22 @@ namespace JsonWin32Generator
                         Violation.Data();
                     }
                 }
+
+                bool optional = false;
+                if (typePatch.FieldMap.TryGetValue(fieldName, out FieldPatch? patch))
+                {
+                    patch.ApplyCount += 1;
+                    if (patch.Config.Optional)
+                    {
+                        Enforce.Patch(!optional, Fmt.In($"field '{fieldName}' Optional patch has been fixed"));
+                        optional = true;
+                    }
+                }
+                if (optional)
+                {
+                    jsonAttributes.Add("\"Optional\"");
+                }
+
                 string attrs = string.Join(",", jsonAttributes);
                 string fieldTypeJson = fieldType.ToJson();
                 writer.WriteLine("{0}{{\"Name\":\"{1}\",\"Type\":{2},\"Attrs\":[{3}]}}", fieldElemPrefix, fieldName, fieldTypeJson, attrs);
@@ -857,6 +873,19 @@ namespace JsonWin32Generator
                 writer.WriteLine(",\"DllImport\":\"{0}\"", importName);
             }
             writer.WriteLine(",\"ReturnType\":{0}", methodSig.ReturnType.ToJson());
+            {
+                List<string> returnJsonAttrs = new List<string>();
+                if (funcPatch.ReturnType != null)
+                {
+                    funcPatch.ReturnType.ApplyCount += 1;
+                    if (funcPatch.ReturnType.Config.Optional)
+                    {
+                        returnJsonAttrs.Add("\"Optional\"");
+                    }
+                }
+                writer.WriteLine(",\"ReturnAttrs\":[{0}]", string.Join(",", returnJsonAttrs));
+            }
+
             if (kind != FuncKind.Ptr)
             {
                 // When kind == FuncKind.Ptr, the Architectures/Platform will have already been printed in GenerateType

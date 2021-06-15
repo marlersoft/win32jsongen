@@ -13,18 +13,36 @@ namespace JsonWin32Generator
     internal abstract class PatchConfig
     {
 #pragma warning disable CA1825 // Avoid zero-length array allocations
+#pragma warning disable SA1202 // Elements should be ordered by access
         internal static readonly Const[] Consts = new Const[]
         {
             // NOTE: no issue filed for this yet
             new Const(Api: "Devices.Usb", Name: "WinUSB_TestGuid", Duplicated: true),
         };
 
+        private static readonly Param[] OptionalHwndParam = new Param[] { new Param(Name: "hWnd", Optional: true) };
+
         internal static readonly Func[] Funcs = new Func[]
         {
+            new Func(Api: "UI.WindowsAndMessaging", Name: "ShowWindow", Params: OptionalHwndParam),
+            new Func(Api: "UI.WindowsAndMessaging", Name: "CreateWindowExA", ReturnType: new ReturnType(Optional: true)),
+            new Func(Api: "UI.WindowsAndMessaging", Name: "CreateWindowExW", ReturnType: new ReturnType(Optional: true)),
+            new Func(Api: "Graphics.Gdi", Name: "CreateFontA", ReturnType: new ReturnType(Optional: true)),
+            new Func(Api: "Graphics.Gdi", Name: "CreateFontW", ReturnType: new ReturnType(Optional: true)),
+        };
+
+        private static readonly Field[] WNDCLASSFields = new Field[]
+        {
+            new Field(Name: "hIcon", Optional: true),
+            new Field(Name: "hCursor", Optional: true),
+            new Field(Name: "hbrBackground", Optional: true),
+            new Field(Name: "lpszMenuName", Optional: true),
         };
 
         internal static readonly Type[] Types = new Type[]
         {
+            new Type(Api: "UI.WindowsAndMessaging", Name: "WNDCLASSA", Fields: WNDCLASSFields),
+            new Type(Api: "UI.WindowsAndMessaging", Name: "WNDCLASSW", Fields: WNDCLASSFields),
         };
 
         // Have to disable this warning here because compiler unable to detect when record fields are used
@@ -33,9 +51,11 @@ namespace JsonWin32Generator
 
         internal record Param(string Name, bool Optional = false, bool Const = false);
 
-        internal record Func(string Api, string Name, Param[] Params);
+        internal record ReturnType(bool Optional = false);
 
-        internal record Field(string Name, string? Type);
+        internal record Func(string Api, string Name, ReturnType? ReturnType = null, Param[]? Params = null);
+
+        internal record Field(string Name, string? Type = null, bool Optional = false);
 
         internal record Type(string Api, string Name, bool Remove = false, Field[]? Fields = null, Type[]? NestedTypes = null);
 #pragma warning restore CA1801 // Review unused parameters
@@ -53,9 +73,12 @@ namespace JsonWin32Generator
             {
                 ApiPatch apiPatch = apiMap.GetOrCreate(func.Api);
                 var paramMap = new Dictionary<string, ParamPatch>();
-                foreach (Param param in func.Params)
+                if (func.Params != null)
                 {
-                    paramMap.Add(param.Name, new ParamPatch(param));
+                    foreach (Param param in func.Params)
+                    {
+                        paramMap.Add(param.Name, new ParamPatch(param));
+                    }
                 }
 
                 apiPatch.FuncMap.Add(func.Name, new FuncPatch(func, paramMap));
@@ -236,6 +259,21 @@ namespace JsonWin32Generator
         }
     }
 
+    internal class ReturnTypePatch : Patch
+    {
+        public ReturnTypePatch(PatchConfig.ReturnType config)
+        {
+            this.Config = config;
+        }
+
+        public PatchConfig.ReturnType Config { get; }
+
+        public override string ToString()
+        {
+            return Fmt.In($"ReturnType");
+        }
+    }
+
     internal class ParamPatch : Patch
     {
         public ParamPatch(PatchConfig.Param config)
@@ -276,15 +314,22 @@ namespace JsonWin32Generator
         internal FuncPatch(PatchConfig.Func func, Dictionary<string, ParamPatch> paramMap)
         {
             this.Func = func;
+            this.ReturnType = (func.ReturnType == null) ? null : new ReturnTypePatch(func.ReturnType);
             this.ParamMap = paramMap;
         }
 
         internal PatchConfig.Func Func { get; }
 
+        internal ReturnTypePatch? ReturnType { get; }
+
         internal Dictionary<string, ParamPatch> ParamMap { get; }
 
         internal void SelectSubPatches(PatchCallback callback)
         {
+            if (this.ReturnType != null)
+            {
+                callback(this.ReturnType);
+            }
             foreach (ParamPatch paramPatch in this.ParamMap.Values)
             {
                 callback(paramPatch);
