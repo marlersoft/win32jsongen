@@ -24,11 +24,17 @@ namespace JsonWin32Generator
 
         internal static readonly Func[] Funcs = new Func[]
         {
+            new Func(Api: "System.Memory", Name: "CreateFileMappingA", ReturnType: new ReturnType(Optional: true)),
+            new Func(Api: "System.Memory", Name: "CreateFileMappingW", ReturnType: new ReturnType(Optional: true)),
+            new Func(Api: "System.Memory", Name: "MapViewOfFile", ReturnType: new ReturnType(Optional: true)),
+            new Func(Api: "System.Memory", Name: "MapViewOfFileEx", ReturnType: new ReturnType(Optional: true)),
             new Func(Api: "UI.WindowsAndMessaging", Name: "ShowWindow", Params: OptionalHwndParam),
             new Func(Api: "UI.WindowsAndMessaging", Name: "CreateWindowExA", ReturnType: new ReturnType(Optional: true)),
             new Func(Api: "UI.WindowsAndMessaging", Name: "CreateWindowExW", ReturnType: new ReturnType(Optional: true)),
             new Func(Api: "Graphics.Gdi", Name: "CreateFontA", ReturnType: new ReturnType(Optional: true)),
             new Func(Api: "Graphics.Gdi", Name: "CreateFontW", ReturnType: new ReturnType(Optional: true)),
+            new Func(Api: "System.Console", Name: "WriteConsoleA", Params: new Param[] { new Param(Name: "lpReserved", Optional: true) }),
+            new Func(Api: "System.Console", Name: "WriteConsoleW", Params: new Param[] { new Param(Name: "lpReserved", Optional: true) }),
         };
 
         private static readonly Field[] WNDCLASSFields = new Field[]
