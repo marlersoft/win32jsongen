@@ -980,6 +980,10 @@ namespace JsonWin32Generator
                     {
                         jsonAttributes.Add("\"DoNotRelease\"");
                     }
+                    else if (attr is CustomAttr.Reserved)
+                    {
+                        jsonAttributes.Add("\"Reserved\"");
+                    }
                     else
                     {
                         Violation.Data();

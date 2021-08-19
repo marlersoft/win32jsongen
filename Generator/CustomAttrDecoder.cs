@@ -401,6 +401,13 @@ namespace JsonWin32Generator
                 return CustomAttr.DoNotRelease.Instance;
             }
 
+            if (attrName == new NamespaceAndName("Windows.Win32.Interop", "ReservedAttribute"))
+            {
+                Enforce.AttrFixedArgCount(attrName, attrArgs, 0);
+                Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
+                return CustomAttr.Reserved.Instance;
+            }
+
             throw new NotImplementedException(Fmt.In($"unhandled custom attribute \"{attrName.Namespace}\", \"{attrName.Name}\""));
         }
 
@@ -623,6 +630,15 @@ namespace JsonWin32Generator
             public static readonly DoNotRelease Instance = new DoNotRelease();
 
             private DoNotRelease()
+            {
+            }
+        }
+
+        internal class Reserved : CustomAttr
+        {
+            public static readonly Reserved Instance = new Reserved();
+
+            private Reserved()
             {
             }
         }

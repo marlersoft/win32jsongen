@@ -336,6 +336,7 @@ namespace JsonWin32Generator
             {
                 callback(this.ReturnType);
             }
+
             foreach (ParamPatch paramPatch in this.ParamMap.Values)
             {
                 callback(paramPatch);
