@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <MetadataVersion>10.2.163-preview</MetadataVersion>
+    <MetadataVersion>10.2.185-preview</MetadataVersion>
   </PropertyGroup>
   
   <PropertyGroup>
@@ -22,7 +22,7 @@
     <PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.261" PrivateAssets="all" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="$(MicrosoftWindowsSdkWin32MetadataBasePath)*.winmd">
+    <None Include="@(ProjectionMetadataWinmd)">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
