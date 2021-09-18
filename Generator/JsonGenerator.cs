@@ -127,7 +127,9 @@ namespace JsonWin32Generator
             {
                 string filepath = Path.Combine(outDir, api.Name + ".json");
                 using var fileStream = new FileStream(filepath, FileMode.Create, FileAccess.Write, FileShare.Read);
-                using var streamWriter = new StreamWriter(fileStream, Encoding.UTF8);
+
+                // Encode the stream as UTF-8 without adding the byte order mark.
+                using var streamWriter = new StreamWriter(fileStream, new UTF8Encoding(false));
                 var writer = new TabWriter(streamWriter);
                 Console.WriteLine("Api: {0}", api.Name);
                 ApiPatch apiPatch = apiMap.GetValueOrDefault(api.Name, Patch.EmptyApi);
