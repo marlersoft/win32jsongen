@@ -487,7 +487,7 @@ namespace JsonWin32Generator
                 Enforce.Data(typeInfo.TypeRefTargetKind == TypeGenInfo.TypeRefKind.Default);
                 Enforce.Data(freeFuncAttr == null);
                 Enforce.Data(optionalAlsoUsableFor is null);
-                if (guid == null)
+                if (guid == null || typePatch.Config.NotComClassID)
                 {
                     this.GenerateStruct(writer, typePatch, typeInfo, attrs.Layout);
                 }

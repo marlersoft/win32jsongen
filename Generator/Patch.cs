@@ -51,10 +51,10 @@ namespace JsonWin32Generator
             new Type(Api: "UI.WindowsAndMessaging", Name: "WNDCLASSW", Fields: WNDCLASSFields),
 
             // Workaround https://github.com/microsoft/win32metadata/issues/737
-            new Type(Api: "System.Iis", Name: "CONFIGURATION_ENTRY", Remove: true),
-            new Type(Api: "System.Iis", Name: "LOGGING_PARAMETERS", Remove: true),
-            new Type(Api: "System.Iis", Name: "PRE_PROCESS_PARAMETERS", Remove: true),
-            new Type(Api: "System.Iis", Name: "POST_PROCESS_PARAMETERS", Remove: true),
+            new Type(Api: "System.Iis", Name: "CONFIGURATION_ENTRY", NotComClassID: true),
+            new Type(Api: "System.Iis", Name: "LOGGING_PARAMETERS", NotComClassID: true),
+            new Type(Api: "System.Iis", Name: "PRE_PROCESS_PARAMETERS", NotComClassID: true),
+            new Type(Api: "System.Iis", Name: "POST_PROCESS_PARAMETERS", NotComClassID: true),
         };
 
         internal static readonly ComType[] ComTypes = new ComType[]
@@ -78,7 +78,7 @@ namespace JsonWin32Generator
 
         internal record Field(string Name, string? Type = null, bool Optional = false);
 
-        internal record Type(string Api, string Name, bool Remove = false, Field[]? Fields = null, Type[]? NestedTypes = null);
+        internal record Type(string Api, string Name, bool Remove = false, Field[]? Fields = null, Type[]? NestedTypes = null, bool NotComClassID = false);
 
         internal record ComType(Type Type, Func[]? Funcs = null);
 #pragma warning restore CA1801 // Review unused parameters
