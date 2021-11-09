@@ -909,6 +909,17 @@ namespace JsonWin32Generator
 
             writer.WriteLine(",\"Params\":[");
             writer.Tab();
+            if (!funcPatch.Func.SkipParams)
+            {
+                GenerateParams(writer, funcDef, funcPatch, methodSig);
+            }
+            writer.Untab();
+            writer.WriteLine("]");
+            return funcName;
+        }
+
+        private void GenerateParams(TabWriter writer, MethodDefinition funcDef, FuncPatch funcPatch, MethodSignature<TypeRef> methodSig)
+        {
             string paramFieldPrefix = string.Empty;
             int nextExpectedSequenceNumber = 1;
             foreach (ParameterHandle paramHandle in funcDef.GetParameters())
@@ -1022,9 +1033,6 @@ namespace JsonWin32Generator
                 writer.WriteLine($"{paramFieldPrefix}{{\"Name\":\"{paramName}\",\"Type\":{paramType.ToJson()},\"Attrs\":[{attrs}]}}");
                 paramFieldPrefix = ",";
             }
-            writer.Untab();
-            writer.WriteLine("]");
-            return funcName;
         }
 
 #pragma warning restore SA1513 // Closing brace should be followed by blank line

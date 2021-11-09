@@ -49,6 +49,21 @@ namespace JsonWin32Generator
         {
             new Type(Api: "UI.WindowsAndMessaging", Name: "WNDCLASSA", Fields: WNDCLASSFields),
             new Type(Api: "UI.WindowsAndMessaging", Name: "WNDCLASSW", Fields: WNDCLASSFields),
+
+            // Workaround https://github.com/microsoft/win32metadata/issues/737
+            new Type(Api: "System.Iis", Name: "CONFIGURATION_ENTRY", Remove: true),
+            new Type(Api: "System.Iis", Name: "LOGGING_PARAMETERS", Remove: true),
+            new Type(Api: "System.Iis", Name: "PRE_PROCESS_PARAMETERS", Remove: true),
+            new Type(Api: "System.Iis", Name: "POST_PROCESS_PARAMETERS", Remove: true),
+        };
+
+        internal static readonly ComType[] ComTypes = new ComType[]
+        {
+            // Workaround https://github.com/microsoft/win32metadata/issues/736
+            new ComType(Type: new Type(Api: "NetworkManagement.NetManagement", Name: "INetCfgComponentUpperEdge"), Funcs: new Func[]
+            {
+                new Func(Api: "NetworkManagement.NetManagement", Name: "AddInterfacesToAdapter", SkipParams: true),
+            }),
         };
 
         // Have to disable this warning here because compiler unable to detect when record fields are used
@@ -59,12 +74,28 @@ namespace JsonWin32Generator
 
         internal record ReturnType(bool Optional = false);
 
-        internal record Func(string Api, string Name, ReturnType? ReturnType = null, Param[]? Params = null);
+        internal record Func(string Api, string Name, bool SkipParams = false, ReturnType? ReturnType = null, Param[]? Params = null);
 
         internal record Field(string Name, string? Type = null, bool Optional = false);
 
         internal record Type(string Api, string Name, bool Remove = false, Field[]? Fields = null, Type[]? NestedTypes = null);
+
+        internal record ComType(Type Type, Func[]? Funcs = null);
 #pragma warning restore CA1801 // Review unused parameters
+
+        internal static FuncPatch CreateFuncPatch(Func func)
+        {
+            var paramMap = new Dictionary<string, ParamPatch>();
+            if (func.Params != null)
+            {
+                foreach (Param param in func.Params)
+                {
+                    paramMap.Add(param.Name, new ParamPatch(param));
+                }
+            }
+
+            return new FuncPatch(func, paramMap);
+        }
 
         internal static Dictionary<string, ApiPatch> CreateApiMap()
         {
@@ -75,24 +106,20 @@ namespace JsonWin32Generator
                 apiMap.GetOrCreate(c.Api).ConstMap.Add(c.Name, new ConstPatch(c));
             }
 
-            foreach (Func func in Funcs)
-            {
-                ApiPatch apiPatch = apiMap.GetOrCreate(func.Api);
-                var paramMap = new Dictionary<string, ParamPatch>();
-                if (func.Params != null)
-                {
-                    foreach (Param param in func.Params)
-                    {
-                        paramMap.Add(param.Name, new ParamPatch(param));
-                    }
-                }
-
-                apiPatch.FuncMap.Add(func.Name, new FuncPatch(func, paramMap));
-            }
-
             foreach (Type type in Types)
             {
                 apiMap.GetOrCreate(type.Api).TypeMap.Add(type.Name, CreateTypePatch(type));
+            }
+
+            foreach (ComType type in ComTypes)
+            {
+                apiMap.GetOrCreate(type.Type.Api).TypeMap.Add(type.Type.Name, CreateComTypePatch(type));
+            }
+
+            foreach (Func func in Funcs)
+            {
+                ApiPatch apiPatch = apiMap.GetOrCreate(func.Api);
+                apiPatch.FuncMap.Add(func.Name, CreateFuncPatch(func));
             }
 
             return apiMap;
@@ -121,6 +148,21 @@ namespace JsonWin32Generator
             }
 
             return new TypePatch(type, fieldMap, nestedTypeMap);
+        }
+
+        private static TypePatch CreateComTypePatch(ComType type)
+        {
+            Dictionary<string, FuncPatch> funcMap = Patch.EmptyFuncMap;
+            if (type.Funcs != null)
+            {
+                funcMap = new Dictionary<string, FuncPatch>();
+                foreach (Func func in type.Funcs)
+                {
+                    funcMap.Add(func.Name, CreateFuncPatch(func));
+                }
+            }
+
+            return new ComTypePatch(type.Type, funcMap);
         }
     }
 
@@ -355,6 +397,17 @@ namespace JsonWin32Generator
         public Dictionary<string, FuncPatch> FuncMap { get; }
 
         internal override ComTypePatch ToComPatch() => this;
+
+        internal new void SelectSubPatches(PatchCallback callback)
+        {
+            base.SelectSubPatches(callback);
+
+            foreach (FuncPatch funcPatch in this.FuncMap.Values)
+            {
+                callback(funcPatch);
+                funcPatch.SelectSubPatches(callback);
+            }
+        }
     }
 
     internal class OptionalMap
