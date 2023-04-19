@@ -234,7 +234,7 @@ namespace JsonWin32Generator
 
             internal override void FormatTypeJson(StringBuilder builder)
             {
-                builder.Append($"{{\"Kind\":\"LPArray\",\"NullNullTerm\":{this.NullNullTerm.Json()},\"CountConst\":{this.CountConst},\"CountParamIndex\":{this.CountParamIndex},\"Child\":");
+                builder.Append(Fmt.In($"{{\"Kind\":\"LPArray\",\"NullNullTerm\":{this.NullNullTerm.Json()},\"CountConst\":{this.CountConst},\"CountParamIndex\":{this.CountParamIndex},\"Child\":"));
                 this.ChildType.FormatTypeJson(builder);
                 builder.Append('}');
             }

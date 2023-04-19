@@ -911,7 +911,7 @@ namespace JsonWin32Generator
             writer.Tab();
             if (!funcPatch.Func.SkipParams)
             {
-                GenerateParams(writer, funcDef, funcPatch, methodSig);
+                this.GenerateParams(writer, funcDef, funcPatch, methodSig);
             }
             writer.Untab();
             writer.WriteLine("]");
