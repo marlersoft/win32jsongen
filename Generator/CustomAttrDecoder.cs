@@ -286,6 +286,13 @@ namespace JsonWin32Generator
                 return CustomAttr.Flags.Instance;
             }
 
+            if (attrName == new NamespaceAndName("System.Diagnostics.CodeAnalysis", "DoesNotReturnAttribute"))
+            {
+                Enforce.AttrFixedArgCount(attrName, attrArgs, 0);
+                Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
+                return CustomAttr.DoesNotReturn.Instance;
+            }
+
             if (attrName == new NamespaceAndName("Windows.Win32.Interop", "GuidAttribute"))
             {
                 Enforce.AttrFixedArgCount(attrName, attrArgs, 11);
@@ -639,6 +646,15 @@ namespace JsonWin32Generator
             public static readonly Reserved Instance = new Reserved();
 
             private Reserved()
+            {
+            }
+        }
+
+        internal class DoesNotReturn : CustomAttr
+        {
+            public static readonly DoesNotReturn Instance = new DoesNotReturn();
+
+            private DoesNotReturn()
             {
             }
         }

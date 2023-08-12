@@ -129,8 +129,29 @@ namespace JsonWin32Generator
 
         internal static string ReadConstValue(this Constant constant, MetadataReader mr)
         {
-            Enforce.Invariant(!constant.Value.IsNil);
-            return constant.TypeCode.ReadConstValue(mr.GetBlobReader(constant.Value));
+            if (!constant.Value.IsNil)
+            {
+                return constant.TypeCode.ReadConstValue(mr.GetBlobReader(constant.Value));
+            }
+
+            return constant.TypeCode switch
+            {
+                ConstantTypeCode.Boolean => throw Violation.Data(),
+                ConstantTypeCode.Char => throw Violation.Data(),
+                ConstantTypeCode.SByte => throw Violation.Data(),
+                ConstantTypeCode.Byte => throw Violation.Data(),
+                ConstantTypeCode.Int16 => throw Violation.Data(),
+                ConstantTypeCode.UInt16 => throw Violation.Data(),
+                ConstantTypeCode.Int32 => throw Violation.Data(),
+                ConstantTypeCode.UInt32 => throw Violation.Data(),
+                ConstantTypeCode.Int64 => throw Violation.Data(),
+                ConstantTypeCode.UInt64 => throw Violation.Data(),
+                ConstantTypeCode.Single => throw Violation.Data(),
+                ConstantTypeCode.Double => throw Violation.Data(),
+                ConstantTypeCode.String => "null",
+                ConstantTypeCode.NullReference => throw Violation.Data(),
+                _ => throw new InvalidOperationException(),
+            };
         }
 
         private static string ReadConstValue(this ConstantTypeCode code, BlobReader blobReader)

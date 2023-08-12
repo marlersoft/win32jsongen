@@ -780,6 +780,7 @@ namespace JsonWin32Generator
 
             // Looks like right now all the functions have these same attributes
             var decodedAttrs = new DecodedMethodAttributes(funcDef.Attributes);
+            bool comFunctionButPreserveSig = false;
             Enforce.Data(decodedAttrs.MemberAccess == MemberAccess.Public);
             if (kind == FuncKind.Ptr)
             {
@@ -796,8 +797,13 @@ namespace JsonWin32Generator
                 Enforce.Data(decodedAttrs.IsVirtual);
                 Enforce.Data(!decodedAttrs.PInvokeImpl);
                 Enforce.Data(decodedAttrs.NewSlot);
-                Enforce.Data(funcDef.ImplAttributes == 0);
                 Enforce.Data(decodedAttrs.IsAbstract);
+                comFunctionButPreserveSig = funcDef.ImplAttributes switch
+                {
+                    0 => false,
+                    MethodImplAttributes.PreserveSig => true,
+                    _ => throw Violation.Data(),
+                };
             }
             else
             {
@@ -814,6 +820,7 @@ namespace JsonWin32Generator
 
             string? optionalSupportedOsPlatform = null;
             Arch[] archLimits = Array.Empty<Arch>();
+            bool doesNotReturn = false;
             foreach (CustomAttributeHandle attrHandle in funcDef.GetCustomAttributes())
             {
                 CustomAttr attr = CustomAttr.Decode(this.mr, attrHandle);
@@ -826,6 +833,10 @@ namespace JsonWin32Generator
                 {
                     Enforce.Data(archLimits.Length == 0);
                     archLimits = CustomAttr.GetArchLimit(supportedArch.ArchFlags);
+                }
+                else if (attr is CustomAttr.DoesNotReturn)
+                {
+                    doesNotReturn = true;
                 }
                 else
                 {
@@ -885,6 +896,11 @@ namespace JsonWin32Generator
                         returnJsonAttrs.Add("\"Optional\"");
                     }
                 }
+                if (doesNotReturn)
+                {
+                    Enforce.Data(methodSig.ReturnType == TypeRef.Primitive.Void);
+                    returnJsonAttrs.Add("\"DoesNotReturn\"");
+                }
                 writer.WriteLine(",\"ReturnAttrs\":[{0}]", string.Join(",", returnJsonAttrs));
             }
 
@@ -904,6 +920,10 @@ namespace JsonWin32Generator
                     || funcName.StartsWith("add_", StringComparison.Ordinal)
                     || funcName.StartsWith("remove_", StringComparison.Ordinal));
                 funcJsonAttrs.Add("\"SpecialName\"");
+            }
+            if (comFunctionButPreserveSig)
+            {
+                funcJsonAttrs.Add("\"PreserveSig\"");
             }
             WriteJsonArray(writer, ",\"Attrs\":", funcJsonAttrs, string.Empty);
 
