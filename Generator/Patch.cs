@@ -57,15 +57,6 @@ namespace JsonWin32Generator
             new Type(Api: "System.Iis", Name: "POST_PROCESS_PARAMETERS", NotComClassID: true),
         };
 
-        internal static readonly ComType[] ComTypes = new ComType[]
-        {
-            // Workaround https://github.com/microsoft/win32metadata/issues/736
-            new ComType(Type: new Type(Api: "NetworkManagement.NetManagement", Name: "INetCfgComponentUpperEdge"), Funcs: new Func[]
-            {
-                new Func(Api: "NetworkManagement.NetManagement", Name: "AddInterfacesToAdapter", SkipParams: true),
-            }),
-        };
-
         // Have to disable this warning here because compiler unable to detect when record fields are used
 #pragma warning disable CA1801 // Review unused parameters
         internal record Const(string Api, string Name, bool Duplicated = false);
@@ -80,7 +71,6 @@ namespace JsonWin32Generator
 
         internal record Type(string Api, string Name, bool Remove = false, Field[]? Fields = null, Type[]? NestedTypes = null, bool NotComClassID = false);
 
-        internal record ComType(Type Type, Func[]? Funcs = null);
 #pragma warning restore CA1801 // Review unused parameters
 
         internal static FuncPatch CreateFuncPatch(Func func)
@@ -109,11 +99,6 @@ namespace JsonWin32Generator
             foreach (Type type in Types)
             {
                 apiMap.GetOrCreate(type.Api).TypeMap.Add(type.Name, CreateTypePatch(type));
-            }
-
-            foreach (ComType type in ComTypes)
-            {
-                apiMap.GetOrCreate(type.Type.Api).TypeMap.Add(type.Type.Name, CreateComTypePatch(type));
             }
 
             foreach (Func func in Funcs)
@@ -148,21 +133,6 @@ namespace JsonWin32Generator
             }
 
             return new TypePatch(type, fieldMap, nestedTypeMap);
-        }
-
-        private static TypePatch CreateComTypePatch(ComType type)
-        {
-            Dictionary<string, FuncPatch> funcMap = Patch.EmptyFuncMap;
-            if (type.Funcs != null)
-            {
-                funcMap = new Dictionary<string, FuncPatch>();
-                foreach (Func func in type.Funcs)
-                {
-                    funcMap.Add(func.Name, CreateFuncPatch(func));
-                }
-            }
-
-            return new ComTypePatch(type.Type, funcMap);
         }
     }
 
