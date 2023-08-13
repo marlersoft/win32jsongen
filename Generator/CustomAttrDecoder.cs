@@ -57,6 +57,11 @@ namespace JsonWin32Generator
                 return CustomAttrType.UInt32;
             }
 
+            if (code == PrimitiveTypeCode.Int64)
+            {
+                return CustomAttrType.Int64;
+            }
+
             throw new NotImplementedException(Fmt.In($"convert PrimitiveTypeCode.{code} to CustomAttrType has not been implemented"));
         }
 
@@ -137,6 +142,7 @@ namespace JsonWin32Generator
         UInt16,
         Int32,
         UInt32,
+        Int64,
         UnmanagedType,
         CallConv,
         SystemType,
@@ -156,6 +162,7 @@ namespace JsonWin32Generator
             ClrTypeToCustomAttrTypeMap.Add(typeof(ushort), CustomAttrType.UInt16);
             ClrTypeToCustomAttrTypeMap.Add(typeof(int), CustomAttrType.Int32);
             ClrTypeToCustomAttrTypeMap.Add(typeof(uint), CustomAttrType.UInt32);
+            ClrTypeToCustomAttrTypeMap.Add(typeof(long), CustomAttrType.Int64);
             ClrTypeToCustomAttrTypeMap.Add(typeof(string), CustomAttrType.Str);
             ClrTypeToCustomAttrTypeMap.Add(typeof(System.Runtime.InteropServices.UnmanagedType), CustomAttrType.UnmanagedType);
             ClrTypeToCustomAttrTypeMap.Add(typeof(Architecture), CustomAttrType.Architecture);
@@ -415,6 +422,13 @@ namespace JsonWin32Generator
                 return CustomAttr.Reserved.Instance;
             }
 
+            if (attrName == new NamespaceAndName("Windows.Win32.Interop", "InvalidHandleValueAttribute"))
+            {
+                Enforce.AttrFixedArgCount(attrName, attrArgs, 1);
+                Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
+                return new CustomAttr.InvalidHandleValue(Enforce.FixedAttrAs<long>(attrArgs.FixedArguments[0]));
+            }
+
             throw new NotImplementedException(Fmt.In($"unhandled custom attribute \"{attrName.Namespace}\", \"{attrName.Name}\""));
         }
 
@@ -657,6 +671,16 @@ namespace JsonWin32Generator
             private DoesNotReturn()
             {
             }
+        }
+
+        internal class InvalidHandleValue : CustomAttr
+        {
+            internal InvalidHandleValue(long value)
+            {
+                this.Value = value;
+            }
+
+            internal long Value { get; }
         }
     }
 }

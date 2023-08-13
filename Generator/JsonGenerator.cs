@@ -393,6 +393,7 @@ namespace JsonWin32Generator
             string? optionalAlsoUsableFor = null;
             Arch[] archLimits = Array.Empty<Arch>();
             bool scopedEnum = false;
+            long? invalidHandleValue = null;
 
             foreach (CustomAttributeHandle attrHandle in typeInfo.Def.GetCustomAttributes())
             {
@@ -439,6 +440,10 @@ namespace JsonWin32Generator
                 {
                     scopedEnum = true;
                 }
+                else if (attr is CustomAttr.InvalidHandleValue value)
+                {
+                    invalidHandleValue = value.Value;
+                }
                 else
                 {
                     Enforce.Data(false);
@@ -462,6 +467,10 @@ namespace JsonWin32Generator
                 writer.WriteLine(",\"FreeFunc\":{0}", freeFuncAttr.JsonString());
                 Enforce.Data(typeInfo.Def.GetMethods().Count == 0);
                 Enforce.Data(typeInfo.NestedTypeCount == 0);
+                if (invalidHandleValue != null)
+                {
+                    writer.WriteLine(",\"InvalidHandleValue\":{0}", invalidHandleValue);
+                }
             }
             else if (typeInfo.Def.BaseType.IsNil)
             {
@@ -470,6 +479,7 @@ namespace JsonWin32Generator
                 Enforce.Data(attrs.Layout == TypeLayoutKind.Auto);
                 Enforce.Data(freeFuncAttr == null);
                 Enforce.Data(optionalAlsoUsableFor is null);
+                Enforce.Data(invalidHandleValue == null);
                 this.GenerateComType(writer, typePatch.ToComPatch(), typeInfo, guid);
             }
             else if (typeInfo.BaseTypeName == new NamespaceAndName("System", "Enum"))
@@ -479,6 +489,7 @@ namespace JsonWin32Generator
                 Enforce.Data(freeFuncAttr == null);
                 Enforce.Data(optionalAlsoUsableFor is null);
                 Enforce.Data(attrs.Layout == TypeLayoutKind.Auto);
+                Enforce.Data(invalidHandleValue == null);
                 this.GenerateEnum(writer, typeInfo, isFlags, scopedEnum);
             }
             else if (typeInfo.BaseTypeName == new NamespaceAndName("System", "ValueType"))
@@ -487,6 +498,7 @@ namespace JsonWin32Generator
                 Enforce.Data(typeInfo.TypeRefTargetKind == TypeGenInfo.TypeRefKind.Default);
                 Enforce.Data(freeFuncAttr == null);
                 Enforce.Data(optionalAlsoUsableFor is null);
+                Enforce.Data(invalidHandleValue == null);
                 if (guid == null || typePatch.Config.NotComClassID)
                 {
                     this.GenerateStruct(writer, typePatch, typeInfo, attrs.Layout);
@@ -512,6 +524,7 @@ namespace JsonWin32Generator
                 Enforce.Data(guid == null);
                 Enforce.Data(freeFuncAttr == null);
                 Enforce.Data(optionalAlsoUsableFor is null);
+                Enforce.Data(invalidHandleValue == null);
                 Enforce.Data(attrs.Layout == TypeLayoutKind.Auto);
                 this.GenerateFunctionPointer(writer, typeInfo);
             }
