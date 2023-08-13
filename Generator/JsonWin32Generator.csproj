@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <MetadataVersion>16.0.1-preview</MetadataVersion>
+    <MetadataVersion>17.0.2-preview</MetadataVersion>
   </PropertyGroup>
   
   <PropertyGroup>
