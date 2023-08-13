@@ -467,10 +467,7 @@ namespace JsonWin32Generator
                 writer.WriteLine(",\"FreeFunc\":{0}", freeFuncAttr.JsonString());
                 Enforce.Data(typeInfo.Def.GetMethods().Count == 0);
                 Enforce.Data(typeInfo.NestedTypeCount == 0);
-                if (invalidHandleValue != null)
-                {
-                    writer.WriteLine(",\"InvalidHandleValue\":{0}", invalidHandleValue);
-                }
+                writer.WriteLine(",\"InvalidHandleValue\":{0}", (invalidHandleValue != null) ? invalidHandleValue : "null");
             }
             else if (typeInfo.Def.BaseType.IsNil)
             {
