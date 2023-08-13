@@ -896,11 +896,6 @@ namespace JsonWin32Generator
                         returnJsonAttrs.Add("\"Optional\"");
                     }
                 }
-                if (doesNotReturn)
-                {
-                    Enforce.Data(methodSig.ReturnType == TypeRef.Primitive.Void);
-                    returnJsonAttrs.Add("\"DoesNotReturn\"");
-                }
                 writer.WriteLine(",\"ReturnAttrs\":[{0}]", string.Join(",", returnJsonAttrs));
             }
 
@@ -920,6 +915,11 @@ namespace JsonWin32Generator
                     || funcName.StartsWith("add_", StringComparison.Ordinal)
                     || funcName.StartsWith("remove_", StringComparison.Ordinal));
                 funcJsonAttrs.Add("\"SpecialName\"");
+            }
+            if (doesNotReturn)
+            {
+                Enforce.Data(methodSig.ReturnType == TypeRef.Primitive.Void);
+                funcJsonAttrs.Add("\"DoesNotReturn\"");
             }
             if (comFunctionButPreserveSig)
             {
