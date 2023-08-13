@@ -780,7 +780,7 @@ namespace JsonWin32Generator
 
             // Looks like right now all the functions have these same attributes
             var decodedAttrs = new DecodedMethodAttributes(funcDef.Attributes);
-            bool comFunctionButPreserveSig = false;
+            bool preserveSig = false;
             Enforce.Data(decodedAttrs.MemberAccess == MemberAccess.Public);
             if (kind == FuncKind.Ptr)
             {
@@ -798,7 +798,7 @@ namespace JsonWin32Generator
                 Enforce.Data(!decodedAttrs.PInvokeImpl);
                 Enforce.Data(decodedAttrs.NewSlot);
                 Enforce.Data(decodedAttrs.IsAbstract);
-                comFunctionButPreserveSig = funcDef.ImplAttributes switch
+                preserveSig = funcDef.ImplAttributes switch
                 {
                     0 => false,
                     MethodImplAttributes.PreserveSig => true,
@@ -811,7 +811,12 @@ namespace JsonWin32Generator
                 Enforce.Data(!decodedAttrs.IsVirtual);
                 Enforce.Data(decodedAttrs.PInvokeImpl);
                 Enforce.Data(!decodedAttrs.NewSlot);
-                Enforce.Data(funcDef.ImplAttributes == MethodImplAttributes.PreserveSig);
+                preserveSig = funcDef.ImplAttributes switch
+                {
+                    MethodImplAttributes.IL => false,
+                    MethodImplAttributes.PreserveSig => true,
+                    _ => throw Violation.Data(),
+                };
                 Enforce.Data(!decodedAttrs.IsAbstract);
             }
             Enforce.Data(!decodedAttrs.IsFinal);
@@ -921,7 +926,7 @@ namespace JsonWin32Generator
                 Enforce.Data(methodSig.ReturnType == TypeRef.Primitive.Void);
                 funcJsonAttrs.Add("\"DoesNotReturn\"");
             }
-            if (comFunctionButPreserveSig)
+            if (preserveSig)
             {
                 funcJsonAttrs.Add("\"PreserveSig\"");
             }
