@@ -107,7 +107,60 @@ namespace JsonWin32Generator
 
         internal static string Json(this bool value) => value ? "true" : "false";
 
-        internal static string JsonString<T>(this T? value) => (value == null) ? "null" : Fmt.In($"\"{value}\"");
+        internal static string JsonString(this string? s)
+        {
+            if (s == null)
+            {
+                return "null";
+            }
+
+            StringBuilder builder = new StringBuilder();
+            builder.Append('"');
+            foreach (char c in s)
+            {
+                builder.Append(c switch
+                {
+                    '\x00' => "\\u0000",
+                    '\x01' => "\\u0001",
+                    '\x02' => "\\u0002",
+                    '\x03' => "\\u0003",
+                    '\x04' => "\\u0004",
+                    '\x05' => "\\u0005",
+                    '\x06' => "\\u0006",
+                    '\x07' => "\\u0007",
+                    '\x08' => "\\b",
+                    '\x09' => "\\t",
+                    '\x0a' => "\\n",
+                    '\x0b' => "\\u00",
+                    '\x0c' => "\\f",
+                    '\x0d' => "\\r",
+                    '\x0e' => "\\u000e",
+                    '\x0f' => "\\u000f",
+                    '\x10' => "\\u0010",
+                    '\x11' => "\\u0011",
+                    '\x12' => "\\u0012",
+                    '\x13' => "\\u0013",
+                    '\x14' => "\\u0014",
+                    '\x15' => "\\u0015",
+                    '\x16' => "\\u0016",
+                    '\x17' => "\\u0017",
+                    '\x18' => "\\u0018",
+                    '\x19' => "\\u0019",
+                    '\x1a' => "\\u001a",
+                    '\x1b' => "\\u001b",
+                    '\x1c' => "\\u001c",
+                    '\x1d' => "\\u001d",
+                    '\x1e' => "\\u001e",
+                    '\x1f' => "\\u001f",
+                    '"' => "\\\"",
+                    '\\' => "\\\\",
+                    _ => c,
+                });
+            }
+
+            builder.Append('"');
+            return builder.ToString();
+        }
 
         internal static string ToJsonStringElements<T>(this T[] elements)
         {
@@ -176,7 +229,7 @@ namespace JsonWin32Generator
             };
             static string GetString(object? obj)
             {
-                return Fmt.In($"\"{(string)obj!}\"");
+                return ((string)obj!).JsonString();
             }
 
             static string GetFloat(float value)
