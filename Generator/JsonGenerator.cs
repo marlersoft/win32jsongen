@@ -394,6 +394,7 @@ namespace JsonWin32Generator
             Arch[] archLimits = Array.Empty<Arch>();
             bool scopedEnum = false;
             long? invalidHandleValue = null;
+            bool isAgile = false;
 
             foreach (CustomAttributeHandle attrHandle in typeInfo.Def.GetCustomAttributes())
             {
@@ -444,6 +445,10 @@ namespace JsonWin32Generator
                 {
                     invalidHandleValue = value.Value;
                 }
+                else if (attr is CustomAttr.Agile)
+                {
+                    isAgile = true;
+                }
                 else
                 {
                     Enforce.Data(false);
@@ -468,6 +473,7 @@ namespace JsonWin32Generator
                 Enforce.Data(typeInfo.Def.GetMethods().Count == 0);
                 Enforce.Data(typeInfo.NestedTypeCount == 0);
                 writer.WriteLine(",\"InvalidHandleValue\":{0}", (invalidHandleValue != null) ? invalidHandleValue : "null");
+                Enforce.Data(!isAgile);
             }
             else if (typeInfo.Def.BaseType.IsNil)
             {
@@ -477,7 +483,7 @@ namespace JsonWin32Generator
                 Enforce.Data(freeFuncAttr == null);
                 Enforce.Data(optionalAlsoUsableFor is null);
                 Enforce.Data(invalidHandleValue == null);
-                this.GenerateComType(writer, typePatch.ToComPatch(), typeInfo, guid);
+                this.GenerateComType(writer, typePatch.ToComPatch(), typeInfo, guid, isAgile);
             }
             else if (typeInfo.BaseTypeName == new NamespaceAndName("System", "Enum"))
             {
@@ -487,6 +493,7 @@ namespace JsonWin32Generator
                 Enforce.Data(optionalAlsoUsableFor is null);
                 Enforce.Data(attrs.Layout == TypeLayoutKind.Auto);
                 Enforce.Data(invalidHandleValue == null);
+                Enforce.Data(!isAgile);
                 this.GenerateEnum(writer, typeInfo, isFlags, scopedEnum);
             }
             else if (typeInfo.BaseTypeName == new NamespaceAndName("System", "ValueType"))
@@ -496,6 +503,7 @@ namespace JsonWin32Generator
                 Enforce.Data(freeFuncAttr == null);
                 Enforce.Data(optionalAlsoUsableFor is null);
                 Enforce.Data(invalidHandleValue == null);
+                Enforce.Data(!isAgile);
                 if (guid == null || typePatch.Config.NotComClassID)
                 {
                     this.GenerateStruct(writer, typePatch, typeInfo, attrs.Layout);
@@ -522,6 +530,7 @@ namespace JsonWin32Generator
                 Enforce.Data(freeFuncAttr == null);
                 Enforce.Data(optionalAlsoUsableFor is null);
                 Enforce.Data(invalidHandleValue == null);
+                Enforce.Data(!isAgile);
                 Enforce.Data(attrs.Layout == TypeLayoutKind.Auto);
                 this.GenerateFunctionPointer(writer, typeInfo);
             }
@@ -548,12 +557,20 @@ namespace JsonWin32Generator
             writer.WriteLine("]");
         }
 
-        private void GenerateComType(TabWriter writer, ComTypePatch comTypePatch, TypeGenInfo typeInfo, string? guid)
+        private void GenerateComType(TabWriter writer, ComTypePatch comTypePatch, TypeGenInfo typeInfo, string? guid, bool isAgile)
         {
             Enforce.Data(typeInfo.Def.GetFields().Count == 0);
 
             writer.WriteLine(",\"Kind\":\"Com\"");
             writer.WriteLine(",\"Guid\":{0}", guid.JsonString());
+            {
+                List<string> attrs = new List<string>();
+                if (isAgile)
+                {
+                    attrs.Add("\"Agile\"");
+                }
+                WriteJsonArray(writer, ",\"Attrs\":", attrs, string.Empty);
+            }
 
             string interfaceJson = "null";
             if (typeInfo.Def.GetInterfaceImplementations().Count != 0)

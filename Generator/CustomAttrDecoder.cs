@@ -429,6 +429,13 @@ namespace JsonWin32Generator
                 return new CustomAttr.InvalidHandleValue(Enforce.FixedAttrAs<long>(attrArgs.FixedArguments[0]));
             }
 
+            if (attrName == new NamespaceAndName("Windows.Win32.Interop", "AgileAttribute"))
+            {
+                Enforce.AttrFixedArgCount(attrName, attrArgs, 0);
+                Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
+                return CustomAttr.Agile.Instance;
+            }
+
             throw new NotImplementedException(Fmt.In($"unhandled custom attribute \"{attrName.Namespace}\", \"{attrName.Name}\""));
         }
 
@@ -681,6 +688,15 @@ namespace JsonWin32Generator
             }
 
             internal long Value { get; }
+        }
+
+        internal class Agile : CustomAttr
+        {
+            public static readonly Agile Instance = new Agile();
+
+            private Agile()
+            {
+            }
         }
     }
 }
