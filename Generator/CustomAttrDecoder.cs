@@ -148,6 +148,9 @@ namespace JsonWin32Generator
         SystemType,
         Str,
         Architecture,
+        NativeEncoding,
+        CanReturnMultipleSuccessValues,
+        CanReturnErrorsAsSuccess,
     }
 
     internal static class CustomAttrTypeMap
@@ -242,6 +245,13 @@ namespace JsonWin32Generator
                 Enforce.AttrFixedArgCount(attrName, attrArgs, 0);
                 Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
                 return CustomAttr.Const.Instance;
+            }
+
+            if (attrName == new NamespaceAndName("Windows.Win32.Interop", "NativeEncodingAttribute"))
+            {
+                Enforce.AttrFixedArgCount(attrName, attrArgs, 1);
+                Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
+                return new CustomAttr.NativeEncoding(Enforce.FixedAttrAs<string>(attrArgs.FixedArguments[0]));
             }
 
             if (attrName == new NamespaceAndName("Windows.Win32.Interop", "NativeArrayInfoAttribute"))
@@ -436,6 +446,20 @@ namespace JsonWin32Generator
                 return CustomAttr.Agile.Instance;
             }
 
+            if (attrName == new NamespaceAndName("Windows.Win32.Interop", "CanReturnMultipleSuccessValuesAttribute"))
+            {
+                Enforce.AttrFixedArgCount(attrName, attrArgs, 0);
+                Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
+                return new CustomAttr.CanReturnMultipleSuccessValues();
+            }
+
+            if (attrName == new NamespaceAndName("Windows.Win32.Interop", "CanReturnErrorsAsSuccessAttribute"))
+            {
+                Enforce.AttrFixedArgCount(attrName, attrArgs, 0);
+                Enforce.AttrNamedArgCount(attrName, attrArgs, 0);
+                return new CustomAttr.CanReturnErrorsAsSuccess();
+            }
+
             throw new NotImplementedException(Fmt.In($"unhandled custom attribute \"{attrName.Namespace}\", \"{attrName.Name}\""));
         }
 
@@ -473,6 +497,16 @@ namespace JsonWin32Generator
             private Const()
             {
             }
+        }
+
+        internal class NativeEncoding : CustomAttr
+        {
+            internal NativeEncoding(string encoding)
+            {
+                this.Encoding = encoding;
+            }
+
+            internal string Encoding { get; }
         }
 
         internal class NativeArrayInfo : CustomAttr
@@ -695,6 +729,20 @@ namespace JsonWin32Generator
             public static readonly Agile Instance = new Agile();
 
             private Agile()
+            {
+            }
+        }
+
+        internal class CanReturnMultipleSuccessValues : CustomAttr
+        {
+            internal CanReturnMultipleSuccessValues()
+            {
+            }
+        }
+
+        internal class CanReturnErrorsAsSuccess : CustomAttr
+        {
+            internal CanReturnErrorsAsSuccess()
             {
             }
         }

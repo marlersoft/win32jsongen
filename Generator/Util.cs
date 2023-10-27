@@ -33,7 +33,7 @@ namespace JsonWin32Generator
 
     internal static class Metadata
     {
-        internal const string WindowsWin32NamespacePrefix = "Windows.Win32.";
+        internal const string WindowsWin32NamespacePrefix = "";
     }
 
     // Shorthand for Formattable.Invariant

@@ -329,6 +329,10 @@ namespace JsonWin32Generator
                 {
                     optionalPropertyKey = key;
                 }
+                else if (attr is CustomAttr.NativeEncoding ne)
+                {
+                    // nothing
+                }
                 else
                 {
                     Violation.Data();
@@ -385,6 +389,7 @@ namespace JsonWin32Generator
             Enforce.Data(typeInfo.Def.BaseType.IsNil == attrs.IsAbstract);
 
             // TODO: do something with these attributes (they are no longer used)
+            bool isObselete = false;
             string? guid = null;
             string? freeFuncAttr = null;
             bool isNativeTypedef = false;
@@ -448,6 +453,10 @@ namespace JsonWin32Generator
                 else if (attr is CustomAttr.Agile)
                 {
                     isAgile = true;
+                }
+                else if (attr is CustomAttr.Obsolete)
+                {
+                    isObselete = true;
                 }
                 else
                 {
@@ -853,6 +862,7 @@ namespace JsonWin32Generator
             string? optionalSupportedOsPlatform = null;
             Arch[] archLimits = Array.Empty<Arch>();
             bool doesNotReturn = false;
+            bool isObselete = false;
             foreach (CustomAttributeHandle attrHandle in funcDef.GetCustomAttributes())
             {
                 CustomAttr attr = CustomAttr.Decode(this.mr, attrHandle);
@@ -870,6 +880,18 @@ namespace JsonWin32Generator
                 {
                     doesNotReturn = true;
                 }
+                else if (attr is CustomAttr.CanReturnMultipleSuccessValues)
+                {
+                    // nothing
+                }
+                else if (attr is CustomAttr.CanReturnErrorsAsSuccess)
+                {
+                    // nothing
+                }
+                else if (attr is CustomAttr.Obsolete obselete)
+                {
+                    isObselete = true;
+                }
                 else
                 {
                     Violation.Data();
@@ -885,7 +907,7 @@ namespace JsonWin32Generator
             if (kind == FuncKind.Fixed)
             {
                 Enforce.Data(methodImportAttrs.ExactSpelling);
-                Enforce.Data(methodImportAttrs.CallConv == CallConv.Winapi);
+                // Enforce.Data(methodImportAttrs.CallConv == CallConv.Winapi);
                 Enforce.Data(this.mr.GetString(methodImport.Name) == funcName);
             }
             else
@@ -898,11 +920,12 @@ namespace JsonWin32Generator
             ModuleReference moduleRef = this.mr.GetModuleReference(methodImport.Module);
             Enforce.Data(moduleRef.GetCustomAttributes().Count == 0);
             string importName = (kind == FuncKind.Fixed) ? this.mr.GetString(moduleRef.Name) : string.Empty;
+            var callingConvention = (kind == FuncKind.Fixed) ? methodImportAttrs.CallConv.ToString() : string.Empty;
 
             MethodSignature<TypeRef> methodSig = funcDef.DecodeSignature(this.typeRefDecoder, null);
 
             Enforce.Data(methodSig.Header.Kind == SignatureKind.Method);
-            Enforce.Data(methodSig.Header.CallingConvention == SignatureCallingConvention.Default);
+            // Enforce.Data(methodSig.Header.CallingConvention == SignatureCallingConvention.Default);
             if (kind == FuncKind.Fixed)
             {
                 Enforce.Data(methodSig.Header.Attributes == SignatureAttributes.None);
@@ -916,6 +939,7 @@ namespace JsonWin32Generator
             if (kind == FuncKind.Fixed)
             {
                 writer.WriteLine(",\"DllImport\":\"{0}\"", importName);
+                writer.WriteLine(",\"CallingConvention\":\"{0}\"", callingConvention);
             }
             writer.WriteLine(",\"ReturnType\":{0}", methodSig.ReturnType.ToJson());
             {
@@ -942,7 +966,8 @@ namespace JsonWin32Generator
             if (decodedAttrs.SpecialName)
             {
                 Enforce.Data(
-                       funcName.StartsWith("get_", StringComparison.Ordinal)
+                    funcName.StartsWith("set_", StringComparison.Ordinal)
+                    || funcName.StartsWith("get_", StringComparison.Ordinal)
                     || funcName.StartsWith("put_", StringComparison.Ordinal)
                     || funcName.StartsWith("add_", StringComparison.Ordinal)
                     || funcName.StartsWith("remove_", StringComparison.Ordinal));
@@ -956,6 +981,10 @@ namespace JsonWin32Generator
             if (preserveSig)
             {
                 funcJsonAttrs.Add("\"PreserveSig\"");
+            }
+            if (isObselete)
+            {
+                funcJsonAttrs.Add("\"Obselete\"");
             }
             WriteJsonArray(writer, ",\"Attrs\":", funcJsonAttrs, string.Empty);
 

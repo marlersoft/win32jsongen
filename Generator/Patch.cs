@@ -17,24 +17,22 @@ namespace JsonWin32Generator
         internal static readonly Const[] Consts = new Const[]
         {
             // NOTE: no issue filed for this yet
-            new Const(Api: "Devices.Usb", Name: "WinUSB_TestGuid", Duplicated: true),
+            new Const(Api: "Windows.Win32.Devices.Usb", Name: "WinUSB_TestGuid", Duplicated: true),
         };
 
         private static readonly Param[] OptionalHwndParam = new Param[] { new Param(Name: "hWnd", Optional: true) };
 
         internal static readonly Func[] Funcs = new Func[]
         {
-            new Func(Api: "System.Memory", Name: "CreateFileMappingA", ReturnType: new ReturnType(Optional: true)),
-            new Func(Api: "System.Memory", Name: "CreateFileMappingW", ReturnType: new ReturnType(Optional: true)),
-            new Func(Api: "System.Memory", Name: "MapViewOfFile", ReturnType: new ReturnType(Optional: true)),
-            new Func(Api: "System.Memory", Name: "MapViewOfFileEx", ReturnType: new ReturnType(Optional: true)),
-            new Func(Api: "UI.WindowsAndMessaging", Name: "ShowWindow", Params: OptionalHwndParam),
-            new Func(Api: "UI.WindowsAndMessaging", Name: "CreateWindowExA", ReturnType: new ReturnType(Optional: true)),
-            new Func(Api: "UI.WindowsAndMessaging", Name: "CreateWindowExW", ReturnType: new ReturnType(Optional: true)),
-            new Func(Api: "Graphics.Gdi", Name: "CreateFontA", ReturnType: new ReturnType(Optional: true)),
-            new Func(Api: "Graphics.Gdi", Name: "CreateFontW", ReturnType: new ReturnType(Optional: true)),
-            new Func(Api: "System.Console", Name: "WriteConsoleA", Params: new Param[] { new Param(Name: "lpReserved", Optional: true) }),
-            new Func(Api: "System.Console", Name: "WriteConsoleW", Params: new Param[] { new Param(Name: "lpReserved", Optional: true) }),
+            new Func(Api: "Windows.Win32.System.Memory", Name: "CreateFileMappingA", ReturnType: new ReturnType(Optional: true)),
+            new Func(Api: "Windows.Win32.System.Memory", Name: "CreateFileMappingW", ReturnType: new ReturnType(Optional: true)),
+            new Func(Api: "Windows.Win32.System.Memory", Name: "MapViewOfFile", ReturnType: new ReturnType(Optional: true)),
+            new Func(Api: "Windows.Win32.System.Memory", Name: "MapViewOfFileEx", ReturnType: new ReturnType(Optional: true)),
+            new Func(Api: "Windows.Win32.UI.WindowsAndMessaging", Name: "ShowWindow", Params: OptionalHwndParam),
+            new Func(Api: "Windows.Win32.UI.WindowsAndMessaging", Name: "CreateWindowExA", ReturnType: new ReturnType(Optional: true)),
+            new Func(Api: "Windows.Win32.UI.WindowsAndMessaging", Name: "CreateWindowExW", ReturnType: new ReturnType(Optional: true)),
+            new Func(Api: "Windows.Win32.Graphics.Gdi", Name: "CreateFontA", ReturnType: new ReturnType(Optional: true)),
+            new Func(Api: "Windows.Win32.Graphics.Gdi", Name: "CreateFontW", ReturnType: new ReturnType(Optional: true)),
         };
 
         private static readonly Field[] WNDCLASSFields = new Field[]
@@ -47,14 +45,14 @@ namespace JsonWin32Generator
 
         internal static readonly Type[] Types = new Type[]
         {
-            new Type(Api: "UI.WindowsAndMessaging", Name: "WNDCLASSA", Fields: WNDCLASSFields),
-            new Type(Api: "UI.WindowsAndMessaging", Name: "WNDCLASSW", Fields: WNDCLASSFields),
+            new Type(Api: "Windows.Win32.UI.WindowsAndMessaging", Name: "WNDCLASSA", Fields: WNDCLASSFields),
+            new Type(Api: "Windows.Win32.UI.WindowsAndMessaging", Name: "WNDCLASSW", Fields: WNDCLASSFields),
 
             // Workaround https://github.com/microsoft/win32metadata/issues/737
-            new Type(Api: "System.Iis", Name: "CONFIGURATION_ENTRY", NotComClassID: true),
-            new Type(Api: "System.Iis", Name: "LOGGING_PARAMETERS", NotComClassID: true),
-            new Type(Api: "System.Iis", Name: "PRE_PROCESS_PARAMETERS", NotComClassID: true),
-            new Type(Api: "System.Iis", Name: "POST_PROCESS_PARAMETERS", NotComClassID: true),
+            new Type(Api: "Windows.Win32.System.Iis", Name: "CONFIGURATION_ENTRY", NotComClassID: true),
+            new Type(Api: "Windows.Win32.System.Iis", Name: "LOGGING_PARAMETERS", NotComClassID: true),
+            new Type(Api: "Windows.Win32.System.Iis", Name: "PRE_PROCESS_PARAMETERS", NotComClassID: true),
+            new Type(Api: "Windows.Win32.System.Iis", Name: "POST_PROCESS_PARAMETERS", NotComClassID: true),
         };
 
         // Have to disable this warning here because compiler unable to detect when record fields are used
