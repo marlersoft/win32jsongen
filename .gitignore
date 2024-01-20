@@ -1,6 +1,7 @@
 obj/
 bin/
 .vs/
+*.csproj.user
 
 # ignore the CsWin32 project if the user cloned it to be
 # able to use its "init.ps1" script
