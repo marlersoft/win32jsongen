@@ -912,25 +912,34 @@ namespace JsonWin32Generator
                 Enforce.Data(methodSig.Header.Attributes == SignatureAttributes.Instance);
             }
 
+            //var remapSig = methodSig.ReturnType is TypeRef.User user && !user.Info.IsNativeTypedef;
+
             writer.WriteLine(",\"SetLastError\":{0}", methodImportAttrs.SetLastError.Json());
             if (kind == FuncKind.Fixed)
             {
                 writer.WriteLine(",\"DllImport\":\"{0}\"", importName);
             }
-            writer.WriteLine(",\"ReturnType\":{0}", methodSig.ReturnType.ToJson());
+            //if (remapSig)
+            //{
+            //    writer.WriteLine(",\"ReturnType\":{0}", TypeRef.Primitive.Void.ToJson());
+            //    writer.WriteLine(",\"ReturnAttrs\":[]");
+            //}
+            //else
             {
-                List<string> returnJsonAttrs = new List<string>();
-                if (funcPatch.ReturnType != null)
+                writer.WriteLine(",\"ReturnType\":{0}", methodSig.ReturnType.ToJson());
                 {
-                    funcPatch.ReturnType.ApplyCount += 1;
-                    if (funcPatch.ReturnType.Config.Optional)
+                    List<string> returnJsonAttrs = new List<string>();
+                    if (funcPatch.ReturnType != null)
                     {
-                        returnJsonAttrs.Add("\"Optional\"");
+                        funcPatch.ReturnType.ApplyCount += 1;
+                        if (funcPatch.ReturnType.Config.Optional)
+                        {
+                            returnJsonAttrs.Add("\"Optional\"");
+                        }
                     }
+                    writer.WriteLine(",\"ReturnAttrs\":[{0}]", string.Join(",", returnJsonAttrs));
                 }
-                writer.WriteLine(",\"ReturnAttrs\":[{0}]", string.Join(",", returnJsonAttrs));
             }
-
             if (kind != FuncKind.Ptr)
             {
                 // When kind == FuncKind.Ptr, the Architectures/Platform will have already been printed in GenerateType
@@ -961,18 +970,30 @@ namespace JsonWin32Generator
 
             writer.WriteLine(",\"Params\":[");
             writer.Tab();
+            var paramCount = 0;
             if (!funcPatch.Func.SkipParams)
             {
-                this.GenerateParams(writer, funcDef, funcPatch, methodSig);
+                paramCount = this.GenerateParams(writer, funcDef, funcPatch, methodSig);
             }
+            //if (remapSig)
+            //{
+            //    if (funcPatch.ReturnType != null)
+            //    {
+            //        funcPatch.ReturnType.ApplyCount += 1;
+            //        // ignore patch
+            //    }
+            //    string paramFieldPrefix = (paramCount > 0) ? "," : string.Empty;
+            //    writer.WriteLine($"{paramFieldPrefix}{{\"Name\":\"retval\",\"Type\":{new TypeRef.PointerTo(methodSig.ReturnType).ToJson()},\"Attrs\":[\"Out\"]}}");
+            //}
             writer.Untab();
             writer.WriteLine("]");
             return funcName;
         }
 
-        private void GenerateParams(TabWriter writer, MethodDefinition funcDef, FuncPatch funcPatch, MethodSignature<TypeRef> methodSig)
+        private int GenerateParams(TabWriter writer, MethodDefinition funcDef, FuncPatch funcPatch, MethodSignature<TypeRef> methodSig)
         {
             string paramFieldPrefix = string.Empty;
+            int count = 0;
             int nextExpectedSequenceNumber = 1;
             foreach (ParameterHandle paramHandle in funcDef.GetParameters())
             {
@@ -1084,7 +1105,10 @@ namespace JsonWin32Generator
                 string attrs = string.Join(",", jsonAttributes);
                 writer.WriteLine($"{paramFieldPrefix}{{\"Name\":\"{paramName}\",\"Type\":{paramType.ToJson()},\"Attrs\":[{attrs}]}}");
                 paramFieldPrefix = ",";
+                count += 1;
             }
+
+            return count;
         }
 
 #pragma warning restore SA1513 // Closing brace should be followed by blank line

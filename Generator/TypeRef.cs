@@ -131,10 +131,11 @@ namespace JsonWin32Generator
             {
                 builder.AppendFormat(
                     CultureInfo.InvariantCulture,
-                    "{{\"Kind\":\"ApiRef\",\"Name\":\"{0}\",\"TargetKind\":\"{1}\",\"Api\":\"{2}\",\"Parents\":[",
+                    "{{\"Kind\":\"ApiRef\",\"Name\":\"{0}\",\"TargetKind\":\"{1}\",\"Api\":\"{2}\",\"IsNativeTypedef\":{3},\"Parents\":[",
                     this.Info.Name,
                     this.Info.TypeRefTargetKind,
-                    this.Info.ApiName);
+                    this.Info.ApiName,
+                    this.Info.IsNativeTypedef.Json());
                 string prefix = string.Empty;
                 foreach (string parentTypeQualifier in this.Info.ParentTypeQualifier.Qualifiers)
                 {

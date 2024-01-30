@@ -6,7 +6,7 @@
   
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net7.0</TargetFramework>
+    <TargetFramework>net5.0</TargetFramework>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
     <!-- Even thought this project doesn't use XML docs, we enable documentation to suppress the SA0001 warning. -->
