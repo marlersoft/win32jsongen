@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <MetadataVersion>21.0.3-preview</MetadataVersion>
+    <MetadataVersion>23.0.2-preview</MetadataVersion>
   </PropertyGroup>
   
   <PropertyGroup>
@@ -33,5 +33,9 @@
   <ItemGroup>
     <AdditionalFiles Include="..\Common\stylecop.json" Link="stylecop.json" />
   </ItemGroup>
+
+  <Target Name="GenerateMetadataVersion" BeforeTargets="CoreCompile" Outputs="$(ProjectDir)\MetadataVersion.generated.cs">
+    <WriteLinesToFile File="$(ProjectDir)\MetadataVersion.generated.cs" Lines="namespace JsonWin32Generator{internal static class MetadataVersion{internal const string Value = &quot;$(MetadataVersion)&quot;%3b}}" Overwrite="true" Encoding="UTF-8" WriteOnlyWhenDifferent="true" />
+  </Target>
 
 </Project>
