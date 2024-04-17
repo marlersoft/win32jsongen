@@ -18,6 +18,17 @@ namespace JsonWin32Generator
         {
             // NOTE: no issue filed for this yet
             new Const(Api: "Devices.Usb", Name: "WinUSB_TestGuid", Duplicated: true),
+
+            // For some reason I get BadImageFormatException: 'Read out of bounds.' when I try
+            // to process these types from winmd.
+            new Const(Api: "Media.MediaFoundation", Name: "MEDIASUBTYPE_P208"),
+            new Const(Api: "Media.MediaFoundation", Name: "MEDIASUBTYPE_P210"),
+            new Const(Api: "Media.MediaFoundation", Name: "MEDIASUBTYPE_P216"),
+            new Const(Api: "Media.MediaFoundation", Name: "MEDIASUBTYPE_P010"),
+            new Const(Api: "Media.MediaFoundation", Name: "MEDIASUBTYPE_P016"),
+            new Const(Api: "Media.MediaFoundation", Name: "MEDIASUBTYPE_Y210"),
+            new Const(Api: "Media.MediaFoundation", Name: "MEDIASUBTYPE_Y216"),
+            new Const(Api: "Media.MediaFoundation", Name: "MEDIASUBTYPE_P408"),
         };
 
         private static readonly Param[] OptionalHwndParam = new Param[] { new Param(Name: "hWnd", Optional: true) };

@@ -270,14 +270,19 @@ namespace JsonWin32Generator
             string name = this.mr.GetString(fieldDef.Name);
 
             ConstPatch constPatch = apiPatch.ConstMap.GetValueOrDefault(name, Patch.EmptyConst);
-            if (constPatch.Config.Duplicated)
+            if (constPatch != Patch.EmptyConst)
             {
-                if (constPatch.ApplyCount == 1)
+                constPatch.ApplyCount += 1;
+                if (!constPatch.Config.Duplicated)
+                {
+                    return;
+                }
+
+                if (constPatch.ApplyCount >= 1)
                 {
                     return;
                 }
             }
-            constPatch.ApplyCount += 1;
 
             writer.WriteLine("{0}{{", constFieldPrefix);
             writer.Tab();
