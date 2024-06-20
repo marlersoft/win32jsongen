@@ -452,7 +452,7 @@ namespace JsonWin32Generator
                 Enforce.FixedAttrAs<byte>(fixedArgs[offset + 7]),
                 Enforce.FixedAttrAs<byte>(fixedArgs[offset + 8]),
                 Enforce.FixedAttrAs<byte>(fixedArgs[offset + 9]),
-                Enforce.FixedAttrAs<byte>(fixedArgs[offset + 10])).ToString();
+                Enforce.FixedAttrAs<byte>(fixedArgs[offset + 10])).ToString("B");
         }
 
         private static bool ConsumeFlag(ref Architecture archFlags, Architecture flag)
