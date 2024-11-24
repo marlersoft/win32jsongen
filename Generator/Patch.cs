@@ -16,9 +16,6 @@ namespace JsonWin32Generator
 #pragma warning disable SA1202 // Elements should be ordered by access
         internal static readonly Const[] Consts = new Const[]
         {
-            // NOTE: no issue filed for this yet
-            new Const(Api: "Devices.Usb", Name: "WinUSB_TestGuid", Duplicated: true),
-
             // For some reason I get BadImageFormatException: 'Read out of bounds.' when I try
             // to process these types from winmd.
             new Const(Api: "Media.MediaFoundation", Name: "MEDIASUBTYPE_P208"),
