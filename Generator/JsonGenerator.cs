@@ -11,6 +11,8 @@ namespace JsonWin32Generator
     using System.Reflection;
     using System.Reflection.Metadata;
     using System.Text;
+    using System.Xml.Linq;
+    using static JsonWin32Generator.TypeRefDecoder;
 
     internal class JsonGenerator
     {
@@ -177,75 +179,93 @@ namespace JsonWin32Generator
         private void GenerateApi(TabWriter writer, ApiPatch apiPatch, Api api)
         {
             writer.WriteLine("{");
-            writer.WriteLine();
-            writer.WriteLine("\"Constants\":[");
-            if (api.Constants != null)
+
+            List <FieldDefinition> filtered_constants = FilterConstants(apiPatch, api.Constants);
+
             {
-                string fieldPrefix = string.Empty;
-                foreach (FieldDefinitionHandle fieldDef in api.Constants)
+                string next_prefix = "\"Constants\":[";
+                foreach (FieldDefinition fieldDef in filtered_constants)
                 {
+                    writer.WriteLine("{0}{{", next_prefix);
                     writer.Tab();
-                    this.GenerateConst(writer, apiPatch, fieldPrefix, fieldDef);
+                    this.GenerateConst(writer, apiPatch, fieldDef);
                     writer.Untab();
-                    fieldPrefix = ",";
+                    next_prefix = "},";
                 }
+                if (filtered_constants.Any())
+                {
+                    next_prefix = "}";
+                }
+
+                writer.WriteLine("{0}],", next_prefix);
             }
-            writer.WriteLine("]");
+
+            writer.WriteLine();
             var unicodeSet = new UnicodeAliasSet();
-            writer.WriteLine();
-            writer.WriteLine(",\"Types\":[");
             {
-                HashSet<string> typesRegistered = new HashSet<string>();
-                string fieldPrefix = string.Empty;
-                foreach (TypeGenInfo typeInfo in api.TopLevelTypes)
-                {
-                    TypePatch typePatch = apiPatch.TypeMap.GetValueOrDefault(typeInfo.Name, Patch.EmptyType);
-                    typePatch.ApplyCount += 1;
-
-                    if (typePatch.Config.Remove)
+                string next_prefix = "\"Types\":[";
+                if (api.TopLevelTypes.Any()) {
+                    HashSet<string> typesRegistered = new HashSet<string>();
+                    foreach (TypeGenInfo typeInfo in api.TopLevelTypes)
                     {
-                        Console.WriteLine("Skipping '{0}' because it has been removed by a patch", typeInfo.Fqn);
-                        continue;
+                        TypePatch typePatch = apiPatch.TypeMap.GetValueOrDefault(typeInfo.Name, Patch.EmptyType);
+                        typePatch.ApplyCount += 1;
+
+                        if (typePatch.Config.Remove)
+                        {
+                            Console.WriteLine("Skipping '{0}' because it has been removed by a patch", typeInfo.Fqn);
+                            continue;
+                        }
+
+                        writer.WriteLine("{0}{{", next_prefix);
+                        writer.Tab();
+                        this.GenerateType(writer, typePatch, typeInfo);
+                        writer.Untab();
+                        next_prefix = "},";
+
+                        if (!typesRegistered.Contains(typeInfo.Name))
+                        {
+                            typesRegistered.Add(typeInfo.Name);
+                            unicodeSet.RegisterTopLevelSymbol(typeInfo.Name);
+                        }
                     }
 
-                    writer.Tab();
-                    this.GenerateType(writer, typePatch, fieldPrefix, typeInfo);
-                    writer.Untab();
-                    fieldPrefix = ",";
-
-                    if (!typesRegistered.Contains(typeInfo.Name))
-                    {
-                        typesRegistered.Add(typeInfo.Name);
-                        unicodeSet.RegisterTopLevelSymbol(typeInfo.Name);
-                    }
+                    next_prefix = "}";
                 }
+
+                writer.WriteLine("{0}],", next_prefix);
             }
-            writer.WriteLine("]");
             writer.WriteLine();
-            writer.WriteLine(",\"Functions\":[");
-            if (api.Funcs != null)
             {
-                HashSet<string> funcsRegistered = new HashSet<string>();
-                string fieldPrefix = string.Empty;
-                foreach (MethodDefinitionHandle funcHandle in api.Funcs)
+                string next_prefix = "\"Functions\":[";
+                if (api.Funcs != null && api.Funcs.Value.Any())
                 {
-                    writer.Tab();
-                    var generatedFuncName = this.GenerateFunc(writer, apiPatch, fieldPrefix, funcHandle, FuncKind.Fixed);
-                    writer.Untab();
-                    fieldPrefix = ",";
-                    if (!funcsRegistered.Contains(generatedFuncName))
+                    HashSet<string> funcsRegistered = new HashSet<string>();
+                    foreach (MethodDefinitionHandle funcHandle in api.Funcs)
                     {
-                        funcsRegistered.Add(generatedFuncName);
-                        unicodeSet.RegisterTopLevelSymbol(generatedFuncName);
+                        writer.WriteLine("{0}{{", next_prefix);
+                        writer.Tab();
+                        var generatedFuncName = this.GenerateFunc(writer, apiPatch, funcHandle, FuncKind.Fixed);
+                        writer.Untab();
+                        next_prefix = "},";
+
+                        if (!funcsRegistered.Contains(generatedFuncName))
+                        {
+                            funcsRegistered.Add(generatedFuncName);
+                            unicodeSet.RegisterTopLevelSymbol(generatedFuncName);
+                        }
                     }
+
+                    next_prefix = "}";
                 }
+
+                writer.WriteLine("{0}],", next_prefix);
             }
-            writer.WriteLine("]");
 
             // NOTE: the win32metadata project winmd file doesn't explicitly contain unicode aliases
             //       but it seems like a good thing to include.
             writer.WriteLine();
-            writer.WriteLine(",\"UnicodeAliases\":[");
+            writer.WriteLine("\"UnicodeAliases\":[");
             writer.Tab();
             {
                 string fieldPrefix = string.Empty;
@@ -260,37 +280,33 @@ namespace JsonWin32Generator
             }
             writer.Untab();
             writer.WriteLine("]");
-            writer.WriteLine();
             writer.WriteLine("}");
         }
 
-        private void GenerateConst(TabWriter writer, ApiPatch apiPatch, string constFieldPrefix, FieldDefinitionHandle fieldDefHandle)
+        private List<FieldDefinition> FilterConstants(ApiPatch apiPatch, FieldDefinitionHandleCollection? constants)
         {
-            FieldDefinition fieldDef = this.mr.GetFieldDefinition(fieldDefHandle);
-            string name = this.mr.GetString(fieldDef.Name);
-
-            ConstPatch constPatch = apiPatch.ConstMap.GetValueOrDefault(name, Patch.EmptyConst);
-            if (constPatch != Patch.EmptyConst)
+            List<FieldDefinition> filtered = new List<FieldDefinition>();
+            if (constants != null)
             {
-                constPatch.ApplyCount += 1;
-                if (!constPatch.Config.Duplicated)
+                foreach (FieldDefinitionHandle fieldDefHandle in constants)
                 {
-                    return;
-                }
-
-                if (constPatch.ApplyCount >= 1)
-                {
-                    return;
+                    FieldDefinition fieldDef = this.mr.GetFieldDefinition(fieldDefHandle);
+                    string name = this.mr.GetString(fieldDef.Name);
+                    ConstPatch constPatch = apiPatch.ConstMap.GetValueOrDefault(name, Patch.EmptyConst);
+                    if (constPatch != Patch.EmptyConst)
+                    {
+                        constPatch.ApplyCount += 1;
+                        continue;
+                    }
+                    filtered.Add(fieldDef);
                 }
             }
+            return filtered;
+        }
 
-            writer.WriteLine("{0}{{", constFieldPrefix);
-            writer.Tab();
-            using var defer = Defer.Do(() =>
-            {
-                writer.Untab();
-                writer.WriteLine("}");
-            });
+        private void GenerateConst(TabWriter writer, ApiPatch apiPatch, FieldDefinition fieldDef)
+        {
+            string name = this.mr.GetString(fieldDef.Name);
 
             bool hasValue;
             if (fieldDef.Attributes == (FieldAttributes.Public | FieldAttributes.Static | FieldAttributes.Literal | FieldAttributes.HasDefault))
@@ -366,15 +382,8 @@ namespace JsonWin32Generator
             WriteJsonArray(writer, ",\"Attrs\":", jsonAttributes, string.Empty);
         }
 
-        private void GenerateType(TabWriter writer, TypePatch typePatch, string typeFieldPrefix, TypeGenInfo typeInfo)
+        private void GenerateType(TabWriter writer, TypePatch typePatch, TypeGenInfo typeInfo)
         {
-            writer.WriteLine("{0}{{", typeFieldPrefix);
-            writer.Tab();
-            using var defer = Defer.Do(() =>
-            {
-                writer.Untab();
-                writer.WriteLine("}");
-            });
             writer.WriteLine("\"Name\":\"{0}\"", typeInfo.Name);
             Enforce.Data(typeInfo.Def.GetNestedTypes().Length == typeInfo.NestedTypeCount);
             foreach (TypeDefinitionHandle nestedTypeHandle in typeInfo.Def.GetNestedTypes())
@@ -547,19 +556,25 @@ namespace JsonWin32Generator
 
         private void GenerateNestedTypes(TabWriter writer, TypePatch enclosingTypePatch, TypeGenInfo typeInfo)
         {
-            string nestedFieldPrefix = string.Empty;
-            writer.WriteLine(",\"NestedTypes\":[");
-            foreach (TypeGenInfo nestedType in typeInfo.NestedTypesEnumerable)
+            string next_prefix = ",\"NestedTypes\":[";
+            if (typeInfo.NestedTypesEnumerable.Any())
             {
-                TypePatch nestedTypePatch = enclosingTypePatch.NestedTypeMap.GetValueOrDefault(nestedType.Name, Patch.EmptyType);
-                nestedTypePatch.ApplyCount += 1;
+                foreach (TypeGenInfo nestedType in typeInfo.NestedTypesEnumerable)
+                {
+                    TypePatch nestedTypePatch = enclosingTypePatch.NestedTypeMap.GetValueOrDefault(nestedType.Name, Patch.EmptyType);
+                    nestedTypePatch.ApplyCount += 1;
 
-                writer.Tab();
-                this.GenerateType(writer, nestedTypePatch, nestedFieldPrefix, nestedType);
-                writer.Untab();
-                nestedFieldPrefix = ",";
+                    writer.WriteLine("{0}{{", next_prefix);
+                    writer.Tab();
+                    this.GenerateType(writer, nestedTypePatch, nestedType);
+                    writer.Untab();
+                    next_prefix = "},";
+                }
+
+                next_prefix = "}";
             }
-            writer.WriteLine("]");
+
+            writer.WriteLine("{0}]", next_prefix);
         }
 
         private void GenerateComType(TabWriter writer, ComTypePatch comTypePatch, TypeGenInfo typeInfo, string? guid, bool isAgile)
@@ -589,16 +604,24 @@ namespace JsonWin32Generator
                 interfaceJson = ifaceType.ToJson();
             }
             writer.WriteLine(",\"Interface\":{0}", interfaceJson);
-            writer.WriteLine(",\"Methods\":[");
-            writer.Tab();
-            string methodElementPrefix = string.Empty;
-            foreach (MethodDefinitionHandle methodDefHandle in typeInfo.Def.GetMethods())
             {
-                this.GenerateFunc(writer, comTypePatch, methodElementPrefix, methodDefHandle, FuncKind.Com);
-                methodElementPrefix = ",";
+                string next_prefix = ",\"Methods\":[";
+                if (typeInfo.Def.GetMethods().Any())
+                {
+                    foreach (MethodDefinitionHandle methodDefHandle in typeInfo.Def.GetMethods())
+                    {
+                        writer.WriteLine("{0}{{", next_prefix);
+                        writer.Tab();
+                        this.GenerateFunc(writer, comTypePatch, methodDefHandle, FuncKind.Com);
+                        writer.Untab();
+                        next_prefix = "},";
+                    }
+
+                    next_prefix = "}";
+                }
+
+                writer.WriteLine("{0}]", next_prefix);
             }
-            writer.Untab();
-            writer.WriteLine("]");
             Enforce.Data(typeInfo.NestedTypeCount == 0);
         }
 
@@ -777,22 +800,10 @@ namespace JsonWin32Generator
                 }
             }
             Enforce.Data(funcMethodHandle != null);
-            this.GenerateFuncCommon(writer, IFuncPatchMap.None, funcMethodHandle!.Value, FuncKind.Ptr);
+            this.GenerateFunc(writer, IFuncPatchMap.None, funcMethodHandle!.Value, FuncKind.Ptr);
         }
 
-        private string GenerateFunc(TabWriter writer, IFuncPatchMap funcPatchMap, string funcFieldPrefix, MethodDefinitionHandle funcHandle, FuncKind kind)
-        {
-            writer.WriteLine("{0}{{", funcFieldPrefix);
-            writer.Tab();
-            using var defer = Defer.Do(() =>
-            {
-                writer.Untab();
-                writer.WriteLine("}");
-            });
-            return this.GenerateFuncCommon(writer, funcPatchMap, funcHandle, kind);
-        }
-
-        private string GenerateFuncCommon(TabWriter writer, IFuncPatchMap funcPatchMap, MethodDefinitionHandle funcHandle, FuncKind kind)
+        private string GenerateFunc(TabWriter writer, IFuncPatchMap funcPatchMap, MethodDefinitionHandle funcHandle, FuncKind kind)
         {
             MethodDefinition funcDef = this.mr.GetMethodDefinition(funcHandle);
             string funcName = string.Empty;

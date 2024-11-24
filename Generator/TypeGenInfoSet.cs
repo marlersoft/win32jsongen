@@ -30,6 +30,8 @@ namespace JsonWin32Generator
 
         internal OneOrMore<TypeGenInfo> LookupTypeInfosByFqn(string fqn) => this.fqnTypeListMap[fqn];
 
+        internal bool Any() { return orderedList.Any(); }
+
         internal void Add(TypeGenInfo info)
         {
             this.orderedList.Add(info);
