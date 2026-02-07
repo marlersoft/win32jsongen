@@ -232,7 +232,7 @@ fn generateApi(
     global.context.set(.api, api_name);
     defer global.context.unset(.api, api_name);
 
-    try writer.writeAll("{\r\n");
+    try writer.writeAll("{\n");
 
     const constant_filter = constant_filters_by_api.get(api_name) orelse std.StaticStringMap(void).initComptime(.{});
 
@@ -263,18 +263,18 @@ fn generateApi(
             if (field_type.len == 0) errExit("invalid type signature (empty)", .{});
             if (field_type[0] != 6) errExit("invalid type signature (not field 0x{x})", .{field_type[0]});
             const @"type" = field_type[1..];
-            try writer.print("{s}{s}{{\r\n", .{ prefix.next(), sep.next() });
-            try writer.print("\t\"Name\":\"{s}\"\r\n", .{name});
-            try writer.print("\t,\"Type\":{f}\r\n", .{fmtTypeJson(md, api_name, @"type")});
+            try writer.print("{s}{s}{{\n", .{ prefix.next(), sep.next() });
+            try writer.print("\t\"Name\":\"{s}\"\n", .{name});
+            try writer.print("\t,\"Type\":{f}\n", .{fmtTypeJson(md, api_name, @"type")});
             switch (value) {
                 .guid => |guid| {
-                    try writer.print("\t,\"ValueType\":\"String\"\r\n", .{});
-                    try writer.print("\t,\"Value\":{f}\r\n", .{fmtGuid(guid)});
+                    try writer.print("\t,\"ValueType\":\"String\"\n", .{});
+                    try writer.print("\t,\"Value\":{f}\n", .{fmtGuid(guid)});
                 },
                 .property_key => |key| {
-                    try writer.print("\t,\"ValueType\":\"PropertyKey\"\r\n", .{});
+                    try writer.print("\t,\"ValueType\":\"PropertyKey\"\n", .{});
                     try writer.print(
-                        "\t,\"Value\":{{\"Fmtid\":{f},\"Pid\":{}}}\r\n",
+                        "\t,\"Value\":{{\"Fmtid\":{f},\"Pid\":{}}}\n",
                         .{ fmtGuid(key.guid), key.pid },
                     );
                 },
@@ -287,7 +287,7 @@ fn generateApi(
                     const constant = md.tables.row(.Constant, constant_index);
                     const constant_type: u8 = @intCast(0xff & constant.type);
                     const encoded_value = md.getBlob(constant.value);
-                    try writer.print("\t,\"ValueType\":{f}\r\n", .{fmtValueTypeJson(constant_type)});
+                    try writer.print("\t,\"ValueType\":{f}\n", .{fmtValueTypeJson(constant_type)});
                     try writer.writeAll("\t,\"Value\":");
                     switch (winmd.ElementType.decode(constant_type) orelse @panic("invalid type byte")) {
                         // .void => try writer.writeAll("\"Void\""),
@@ -328,12 +328,12 @@ fn generateApi(
                         },
                         else => |n| std.debug.panic("unhandled element type {s}", .{@tagName(n)}),
                     }
-                    try writer.writeAll("\r\n");
+                    try writer.writeAll("\n");
                 },
             }
-            try writer.print("\t,\"Attrs\":[]\r\n", .{});
+            try writer.print("\t,\"Attrs\":[]\n", .{});
         }
-        try writer.print("{s}],\r\n\r\n", .{prefix.next()});
+        try writer.print("{s}],\n\n", .{prefix.next()});
     }
 
     for (constant_filter.keys()) |key| {
@@ -355,7 +355,7 @@ fn generateApi(
         var prefix: FirstOnce("\"Types\":[", "}") = .{};
         var sep: FirstOnce("", ",") = .{};
         for (api.type_defs.items) |type_def_index| {
-            try writer.print("{s}{s}{{\r\n", .{ prefix.next(), sep.next() });
+            try writer.print("{s}{s}{{\n", .{ prefix.next(), sep.next() });
             const type_name = try generateType(
                 arena,
                 writer,
@@ -369,7 +369,7 @@ fn generateApi(
             );
             unicode_aliases.add(arena, type_name);
         }
-        try writer.print("{s}],\r\n\r\n", .{prefix.next()});
+        try writer.print("{s}],\n\n", .{prefix.next()});
 
         for (not_com_map.keys()) |key| {
             if (null == not_com_applied.get(key)) {
@@ -383,7 +383,7 @@ fn generateApi(
         var prefix: FirstOnce("\"Functions\":[", "}") = .{};
         var sep: FirstOnce("", ",") = .{};
         for (methods.start..methods.limit) |method_index| {
-            try writer.print("{s}{s}{{\r\n", .{ prefix.next(), sep.next() });
+            try writer.print("{s}{s}{{\n", .{ prefix.next(), sep.next() });
             const name = try generateFunction(
                 writer,
                 md,
@@ -395,21 +395,21 @@ fn generateApi(
             );
             unicode_aliases.add(arena, name);
         }
-        try writer.print("{s}],\r\n\r\n", .{prefix.next()});
+        try writer.print("{s}],\n\n", .{prefix.next()});
     }
 
-    try writer.writeAll("\"UnicodeAliases\":[\r\n");
+    try writer.writeAll("\"UnicodeAliases\":[\n");
     {
         var sep: FirstOnce("", ",") = .{};
         var it = unicode_aliases.map.iterator();
         while (it.next()) |entry| switch (entry.value_ptr.*) {
             .base_exists, .a_only, .w_only => {},
             .both => {
-                try writer.print("\t{s}\"{s}\"\r\n", .{ sep.next(), entry.key_ptr.* });
+                try writer.print("\t{s}\"{s}\"\n", .{ sep.next(), entry.key_ptr.* });
             },
         };
     }
-    try writer.writeAll("]\r\n}\r\n");
+    try writer.writeAll("]\n}\n");
 }
 
 const UnicodeAliases = struct {
@@ -497,11 +497,11 @@ const JsonStrings = struct {
     sep: FirstOnce("", ",") = .{},
     pub fn finish(strings: *JsonStrings) error{WriteFailed}!void {
         if (!strings.sep.at_first) {
-            try strings.writer.print("\r\n{f}", .{strings.line_prefix});
+            try strings.writer.print("\n{f}", .{strings.line_prefix});
         }
     }
     pub fn add(strings: *JsonStrings, string: []const u8) error{WriteFailed}!void {
-        try strings.writer.print("\r\n{f}{s}", .{ strings.line_prefix.indent(), strings.sep.next() });
+        try strings.writer.print("\n{f}{s}", .{ strings.line_prefix.indent(), strings.sep.next() });
         try strings.writer.print("\"{s}\"", .{string});
     }
 };
@@ -525,8 +525,8 @@ fn generateFunction(
     const patches: *patch.FuncPatches = patch_map.getPtr(name) orelse &no_patches;
 
     switch (kind) {
-        .ptr => try writer.print("{f},\"Kind\":\"FunctionPointer\"\r\n", .{line_prefix}),
-        .fixed, .com => try writer.print("{f}\"Name\":\"{s}\"\r\n", .{ line_prefix, name }),
+        .ptr => try writer.print("{f},\"Kind\":\"FunctionPointer\"\n", .{line_prefix}),
+        .fixed, .com => try writer.print("{f}\"Name\":\"{s}\"\n", .{ line_prefix, name }),
     }
 
     var dll_import: ?[]const u8 = null;
@@ -569,9 +569,9 @@ fn generateFunction(
         }
     }
 
-    try writer.print("{f},\"SetLastError\":{}\r\n", .{ line_prefix, set_last_error });
+    try writer.print("{f},\"SetLastError\":{}\n", .{ line_prefix, set_last_error });
     if (kind == .fixed) {
-        try writer.print("{f},\"DllImport\":{f}\r\n", .{ line_prefix, fmtStringJson(dll_import) });
+        try writer.print("{f},\"DllImport\":{f}\n", .{ line_prefix, fmtStringJson(dll_import) });
     }
 
     const sig_blob = md.getBlob(method.signature);
@@ -595,7 +595,7 @@ fn generateFunction(
         @panic("failed to decode return type");
     };
     sig_offset += ret_type_len;
-    try writer.writeAll("\r\n");
+    try writer.writeAll("\n");
     try writer.print("{f},\"ReturnAttrs\":[", .{line_prefix});
     {
         var attr_sep: FirstOnce("", ",") = .{};
@@ -603,10 +603,10 @@ fn generateFunction(
             try writer.print("{s}\"Optional\"", .{attr_sep.next()});
         }
     }
-    try writer.writeAll("]\r\n");
+    try writer.writeAll("]\n");
     if (kind != .ptr) {
-        try writer.print("{f},\"Architectures\":[{f}]\r\n", .{ line_prefix, fmtArches(arches) });
-        try writer.print("{f},\"Platform\":{f}\r\n", .{ line_prefix, fmtStringJson(platform) });
+        try writer.print("{f},\"Architectures\":[{f}]\n", .{ line_prefix, fmtArches(arches) });
+        try writer.print("{f},\"Platform\":{f}\n", .{ line_prefix, fmtStringJson(platform) });
     }
     try writer.print("{f},\"Attrs\":[", .{line_prefix});
     {
@@ -619,9 +619,9 @@ fn generateFunction(
         if (method.impl_flags.preserve_sig) try strings.add("PreserveSig");
         try strings.finish();
     }
-    try writer.writeAll("]\r\n");
+    try writer.writeAll("]\n");
 
-    try writer.print("{f},\"Params\":[\r\n", .{line_prefix});
+    try writer.print("{f},\"Params\":[\n", .{line_prefix});
     const params = md.tables.methodParams(@intCast(method_index));
     var param_sep: FirstOnce("", ",") = .{};
     for (params.start..params.limit) |param_index| {
@@ -715,11 +715,11 @@ fn generateFunction(
         };
         if (optional) try writer.print("{s}\"Optional\"", .{attr_sep.next()});
         if (const_attr) try writer.print("{s}\"Const\"", .{attr_sep.next()});
-        try writer.writeAll("]}\r\n");
+        try writer.writeAll("]}\n");
         sig_offset += param_type_sig.len;
     }
     std.debug.assert(sig_offset == sig_blob.len);
-    try writer.print("{f}]\r\n", .{line_prefix});
+    try writer.print("{f}]\n", .{line_prefix});
     return name;
 }
 
@@ -753,7 +753,7 @@ fn generateType(
     global.context.set(.type, name);
     defer global.context.unset(.type, name);
 
-    try writer.print("{f}\"Name\":\"{s}\"\r\n", .{ line_prefix, name });
+    try writer.print("{f}\"Name\":\"{s}\"\n", .{ line_prefix, name });
     var attrs: TypeAttrs = .{ .flags = type_def.attributes };
 
     {
@@ -812,8 +812,8 @@ fn generateType(
         }
     }
 
-    try writer.print("{f},\"Architectures\":[{f}]\r\n", .{ line_prefix, fmtArches(attrs.arches) });
-    try writer.print("{f},\"Platform\":{f}\r\n", .{ line_prefix, fmtStringJson(attrs.supported_os_platform) });
+    try writer.print("{f},\"Architectures\":[{f}]\n", .{ line_prefix, fmtArches(attrs.arches) });
+    try writer.print("{f},\"Platform\":{f}\n", .{ line_prefix, fmtStringJson(attrs.supported_os_platform) });
 
     if (attrs.is_native_typedef) {
         attrs.verify(.{
@@ -826,8 +826,8 @@ fn generateType(
         });
         // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         // TODO: verify maybe_base_type
-        try writer.print("{f},\"Kind\":\"NativeTypedef\"\r\n", .{line_prefix});
-        try writer.print("{f},\"AlsoUsableFor\":{f}\r\n", .{ line_prefix, fmtStringJson(attrs.also_usable_for) });
+        try writer.print("{f},\"Kind\":\"NativeTypedef\"\n", .{line_prefix});
+        try writer.print("{f},\"AlsoUsableFor\":{f}\n", .{ line_prefix, fmtStringJson(attrs.also_usable_for) });
 
         const fields = md.tables.typeDefRange(type_def_index, .fields);
         if (fields.limit - fields.start != 1) {
@@ -842,14 +842,14 @@ fn generateType(
             const @"type" = field_type[1..];
 
             try writer.print(
-                "{f},\"Def\":{f}\r\n",
+                "{f},\"Def\":{f}\n",
                 .{ line_prefix, fmtTypeJson(md, api_name, @"type") },
             );
         } else {
-            try writer.print("{f},\"Def\":null\r\n", .{line_prefix});
+            try writer.print("{f},\"Def\":null\n", .{line_prefix});
         }
 
-        try writer.print("{f},\"FreeFunc\":{f}\r\n", .{ line_prefix, fmtStringJson(attrs.raii_free) });
+        try writer.print("{f},\"FreeFunc\":{f}\n", .{ line_prefix, fmtStringJson(attrs.raii_free) });
 
         try writer.print("{f},\"InvalidHandleValue\":", .{line_prefix});
         if (attrs.invalid_handle_value) |val| {
@@ -857,7 +857,7 @@ fn generateType(
         } else {
             try writer.writeAll("null");
         }
-        try writer.writeAll("\r\n");
+        try writer.writeAll("\n");
         return name;
     }
 
@@ -916,18 +916,18 @@ fn generateType(
                 .also_usable_for = .no,
                 .invalid_handle_value = .no,
             });
-            try writer.print("{f},\"Kind\":\"Enum\"\r\n", .{line_prefix});
-            try writer.print("{f},\"Flags\":{}\r\n", .{ line_prefix, attrs.is_flags });
-            try writer.print("{f},\"Scoped\":{}\r\n", .{ line_prefix, attrs.scoped_enum });
-            try writer.print("{f},\"Values\":[\r\n", .{line_prefix});
+            try writer.print("{f},\"Kind\":\"Enum\"\n", .{line_prefix});
+            try writer.print("{f},\"Flags\":{}\n", .{ line_prefix, attrs.is_flags });
+            try writer.print("{f},\"Scoped\":{}\n", .{ line_prefix, attrs.scoped_enum });
+            try writer.print("{f},\"Values\":[\n", .{line_prefix});
             const int_base = try generateEnumValues(
                 writer,
                 md,
                 type_def_index,
             );
-            try writer.print("{f}]\r\n", .{line_prefix});
+            try writer.print("{f}]\n", .{line_prefix});
             try writer.print(
-                "{f},\"IntegerBase\":{f}\r\n",
+                "{f},\"IntegerBase\":{f}\n",
                 .{ line_prefix, fmtStringJson(if (int_base) |i| @tagName(i) else null) },
             );
         },
@@ -949,8 +949,8 @@ fn generateType(
                 .invalid_handle_value = .no,
             });
             if (maybe_com_guid) |com_guid| {
-                try writer.print("{f},\"Kind\":\"ComClassID\"\r\n", .{line_prefix});
-                try writer.print("{f},\"Guid\":{f}\r\n", .{ line_prefix, fmtGuid(com_guid) });
+                try writer.print("{f},\"Kind\":\"ComClassID\"\n", .{line_prefix});
+                try writer.print("{f},\"Guid\":{f}\n", .{ line_prefix, fmtGuid(com_guid) });
                 // TypeLayout layout = typeInfo.Def.GetLayout();
                 // Enforce.Data(layout.IsDefault);
                 // Enforce.Data(layout.Size == 0);
@@ -1013,8 +1013,8 @@ fn generateCom(
 ) error{WriteFailed}!void {
     std.debug.assert(md.tables.typeDefRange(type_def_index, .fields).count() == 0);
 
-    try writer.writeAll("\t,\"Kind\":\"Com\"\r\n");
-    try writer.print("\t,\"Guid\":{f}\r\n", .{fmtGuid(guid)});
+    try writer.writeAll("\t,\"Kind\":\"Com\"\n");
+    try writer.print("\t,\"Guid\":{f}\n", .{fmtGuid(guid)});
     try writer.print("\t,\"Attrs\":[", .{});
     {
         var strings: JsonStrings = .{
@@ -1024,7 +1024,7 @@ fn generateCom(
         if (named.Agile) try strings.add("Agile");
         try strings.finish();
     }
-    try writer.writeAll("]\r\n");
+    try writer.writeAll("]\n");
 
     try writer.writeAll("\t,\"Interface\":");
     if (md.interface_map.get(type_def_index)) |interface| {
@@ -1041,14 +1041,14 @@ fn generateCom(
     } else {
         try writer.writeAll("null");
     }
-    try writer.writeAll("\r\n");
+    try writer.writeAll("\n");
 
     {
         var prefix: FirstOnce(",\"Methods\":[", "}") = .{};
         var sep: FirstOnce("", ",") = .{};
         const methods = md.tables.typeDefRange(type_def_index, .methods);
         for (methods.start..methods.limit) |i| {
-            try writer.print("\t{s}{s}{{\r\n", .{ prefix.next(), sep.next() });
+            try writer.print("\t{s}{s}{{\n", .{ prefix.next(), sep.next() });
             _ = try generateFunction(
                 writer,
                 md,
@@ -1059,7 +1059,7 @@ fn generateCom(
                 .com,
             );
         }
-        try writer.print("\t{s}]\r\n", .{prefix.next()});
+        try writer.print("\t{s}]\n", .{prefix.next()});
     }
     std.debug.assert(null == md.nested_map.getIterator(type_def_index).index.asIndex());
 }
@@ -1156,16 +1156,16 @@ fn generateStruct(
         .explicit => "Union",
         else => |l| std.debug.panic("todo: handle layout {s}", .{@tagName(l)}),
     };
-    try writer.print("{f},\"Kind\":\"{s}\"\r\n", .{ line_prefix, kind });
+    try writer.print("{f},\"Kind\":\"{s}\"\n", .{ line_prefix, kind });
 
     const packing_size = blk: {
         const layout_index = md.layout_map.get(type_def_index) orelse break :blk 0;
         const layout = md.tables.row(.ClassLayout, layout_index);
         break :blk layout.packing_size;
     };
-    try writer.print("{f},\"Size\":0\r\n", .{line_prefix});
-    try writer.print("{f},\"PackingSize\":{d}\r\n", .{ line_prefix, packing_size });
-    try writer.print("{f},\"Fields\":[\r\n", .{line_prefix});
+    try writer.print("{f},\"Size\":0\n", .{line_prefix});
+    try writer.print("{f},\"PackingSize\":{d}\n", .{ line_prefix, packing_size });
+    try writer.print("{f},\"Fields\":[\n", .{line_prefix});
 
     var const_field_count: usize = 0;
     const const_field_attrs: winmd.FieldAttributes = .{
@@ -1240,10 +1240,10 @@ fn generateStruct(
             } else {
                 try writer.print("{f}", .{fmtTypeJson(md, api_name, @"type")});
             }
-            try writer.print(",\"Attrs\":[{f}]}}\r\n", .{field_attrs});
+            try writer.print(",\"Attrs\":[{f}]}}\n", .{field_attrs});
         }
     }
-    try writer.print("{f}]\r\n", .{line_prefix});
+    try writer.print("{f}]\n", .{line_prefix});
 
     if (const_field_count > 0) {
         try writer.print("{f},\"Comment\":\"This type has {} const fields, not sure if it's supposed to:", .{ line_prefix, const_field_count });
@@ -1260,7 +1260,7 @@ fn generateStruct(
                 try writer.print("{s} {s} {s}", .{ sep.next(), type_string, name });
             }
         }
-        try writer.writeAll("\"\r\n");
+        try writer.writeAll("\"\n");
     }
 
     {
@@ -1274,7 +1274,7 @@ fn generateStruct(
             const entry = md.tables.row(.NestedClass, nested_class_index);
             std.debug.assert(entry.enclosing.asIndex().? == type_def_index);
             const nested_type_def_index = entry.nested.asIndex().?;
-            try writer.print("{f}{s}{s}{{\r\n", .{ line_prefix, prefix.next(), sep.next() });
+            try writer.print("{f}{s}{s}{{\n", .{ line_prefix, prefix.next(), sep.next() });
             const type_def = md.tables.row(.TypeDef, nested_type_def_index);
             std.debug.assert(type_def.attributes.visibility.isNested());
             const no_patches: patch.ApiPatches = .none;
@@ -1290,7 +1290,7 @@ fn generateStruct(
                 .{ .depth = line_prefix.depth + 1 },
             );
         }
-        try writer.print("{f}{s}]\r\n", .{ line_prefix, prefix.next() });
+        try writer.print("{f}{s}]\n", .{ line_prefix, prefix.next() });
     }
 }
 
@@ -1395,7 +1395,7 @@ fn generateEnumValues(
             .{ sep, name },
         );
         try writeEnumValue(writer, base_type, encoded_value);
-        try writer.writeAll("}\r\n");
+        try writer.writeAll("}\n");
         sep = ",";
     }
 
