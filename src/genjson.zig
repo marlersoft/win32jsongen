@@ -74,7 +74,6 @@ fn go(arena: std.mem.Allocator, winmd_content: []const u8, out_dir: std.fs.Dir) 
         // reverse for now to match origin C# generator
         .custom_attr_map = winmd.Map(.CustomAttr).alloc(arena, &tables, .{ .reverse = true }) catch |e| oom(e),
         .nested_map = winmd.Map(.NestedClass).alloc(arena, &tables) catch |e| oom(e),
-        .nested_old_sorting_map = NestedOldSorting.init(arena, &tables) catch |e| oom(e),
         .impl_map_map = winmd.Map(.ImplMap).alloc(arena, &tables) catch |e| oom(e),
     };
 
@@ -85,7 +84,6 @@ fn go(arena: std.mem.Allocator, winmd_content: []const u8, out_dir: std.fs.Dir) 
         md.layout_map.deinit(arena);
         md.custom_attr_map.deinit(arena);
         md.nested_map.deinit(arena);
-        md.nested_old_sorting_map.deinit(arena);
         md.impl_map_map.deinit(arena);
     }
 
@@ -1267,10 +1265,8 @@ fn generateStruct(
         var prefix: FirstOnce(",\"NestedTypes\":[", "}") = .{};
         var sep: FirstOnce("", ",") = .{};
 
-        // var iterator = md.nested_map.getIterator(type_def_index);
-        // while (iterator.next()) |nested_class_index| {
-        const nested_old_sorting: []const u32 = md.nested_old_sorting_map.get(type_def_index);
-        for (nested_old_sorting) |nested_class_index| {
+        var iterator = md.nested_map.getIterator(type_def_index);
+        while (iterator.next()) |nested_class_index| {
             const entry = md.tables.row(.NestedClass, nested_class_index);
             std.debug.assert(entry.enclosing.asIndex().? == type_def_index);
             const nested_type_def_index = entry.nested.asIndex().?;
@@ -2385,7 +2381,6 @@ const Metadata = struct {
     layout_map: winmd.Map(.ClassLayout),
     custom_attr_map: winmd.Map(.CustomAttr),
     nested_map: winmd.Map(.NestedClass),
-    nested_old_sorting_map: NestedOldSorting,
     impl_map_map: winmd.Map(.ImplMap),
 
     fn getString(md: *const Metadata, index: winmd.StringHeapIndex) [:0]const u8 {
@@ -2445,142 +2440,6 @@ pub const TypeMap = struct {
             .links = self.links,
             .index = if (self.map.get(n)) |i| .fromIndex(i) else .none,
         };
-    }
-};
-
-// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-// TODO: this only exists so we can maintain the same ordering as the original C#
-//       remove this once we release the initial port
-pub const NestedOldSorting = struct {
-    slots: []u32,
-    map: std.AutoHashMapUnmanaged(u32, Slice),
-
-    const Slice = struct { start: u32, len: u32 };
-
-    pub fn init(
-        allocator: std.mem.Allocator,
-        tables: *const winmd.Tables,
-    ) error{OutOfMemory}!NestedOldSorting {
-        var nested_to_nc_row: std.AutoHashMapUnmanaged(u32, u32) = .{};
-        defer nested_to_nc_row.deinit(allocator);
-        var nested_to_enclosing: std.AutoHashMapUnmanaged(u32, u32) = .{};
-        defer nested_to_enclosing.deinit(allocator);
-        for (0..tables.row_counts.NestedClass) |i| {
-            const entry = tables.row(.NestedClass, i);
-            const nested_idx = entry.nested.asIndex().?;
-            const enclosing_idx = entry.enclosing.asIndex().?;
-            nested_to_nc_row.put(allocator, nested_idx, @intCast(i)) catch |e| oom(e);
-            nested_to_enclosing.put(allocator, nested_idx, enclosing_idx) catch |e| oom(e);
-        }
-
-        // Collect nested TypeDef indices in TypeDef table order
-        // (mirrors C#: foreach TypeDefinitions, collect nested ones)
-        var pending = std.ArrayListUnmanaged(u32){};
-        defer pending.deinit(allocator);
-        for (0..tables.row_counts.TypeDef) |i| {
-            const type_def = tables.row(.TypeDef, i);
-            if (type_def.attributes.visibility.isNested()) {
-                pending.append(allocator, @intCast(i)) catch |e| oom(e);
-            }
-        }
-
-        // "Known" types = those whose enclosing type is resolved.
-        // Start with all non-nested types (mirrors C#'s typeMap after first loop).
-        var known: std.AutoHashMapUnmanaged(u32, void) = .{};
-        defer known.deinit(allocator);
-        for (0..tables.row_counts.TypeDef) |i| {
-            const type_def = tables.row(.TypeDef, i);
-            if (!type_def.attributes.visibility.isNested()) {
-                known.put(allocator, @intCast(i), {}) catch |e| oom(e);
-            }
-        }
-
-        // Per-enclosing-type ordered lists of NestedClass row indices
-        var order_lists: std.AutoHashMapUnmanaged(u32, std.ArrayListUnmanaged(u32)) = .{};
-        defer {
-            var it = order_lists.iterator();
-            while (it.next()) |e| e.value_ptr.deinit(allocator);
-            order_lists.deinit(allocator);
-        }
-
-        // Simulate the C# multi-pass backward iteration.
-        //
-        // The C# code has a double-decrement bug:
-        //   for (int i = nestedTypes.Count - 1; i >= 0; i--)
-        //   {
-        //       ...
-        //       nestedTypes.RemoveAt(i);
-        //       i--;                          // <-- extra decrement
-        //   }
-        //
-        // This causes every other resolvable item to be skipped each pass,
-        // which affects the final ordering of AddNestedType calls.
-        while (pending.items.len > 0) {
-            const save_count = pending.items.len;
-
-            var i: isize = @as(isize, @intCast(pending.items.len)) - 1;
-            while (i >= 0) {
-                const idx: usize = @intCast(i);
-                const type_def_index = pending.items[idx];
-                const enclosing = nested_to_enclosing.get(type_def_index).?;
-
-                if (known.get(enclosing) != null) {
-                    const nc_row = nested_to_nc_row.get(type_def_index).?;
-                    const list_entry = order_lists.getOrPut(allocator, enclosing) catch |e| oom(e);
-                    if (!list_entry.found_existing) list_entry.value_ptr.* = .{};
-                    list_entry.value_ptr.append(allocator, nc_row) catch |e| oom(e);
-
-                    known.put(allocator, type_def_index, {}) catch |e| oom(e);
-                    _ = pending.orderedRemove(idx);
-
-                    // C# double-decrement: RemoveAt(i) then i-- in body,
-                    // plus i-- from the for-loop = skips one element
-                    i -= 2;
-                } else {
-                    i -= 1;
-                }
-            }
-
-            if (pending.items.len == save_count) {
-                @panic("nested types with unresolvable enclosing types");
-            }
-        }
-
-        // Flatten per-type lists into a single slots array
-        var total: usize = 0;
-        {
-            var it = order_lists.iterator();
-            while (it.next()) |e| total += e.value_ptr.items.len;
-        }
-
-        const slots = try allocator.alloc(u32, total);
-        var map: std.AutoHashMapUnmanaged(u32, Slice) = .{};
-        errdefer map.deinit(allocator);
-
-        var offset: u32 = 0;
-        {
-            var it = order_lists.iterator();
-            while (it.next()) |e| {
-                const items = e.value_ptr.items;
-                const len: u32 = @intCast(items.len);
-                @memcpy(slots[offset..][0..len], items);
-                map.put(allocator, e.key_ptr.*, .{ .start = offset, .len = len }) catch |e2| oom(e2);
-                offset += len;
-            }
-        }
-
-        return .{ .slots = slots, .map = map };
-    }
-
-    pub fn deinit(self: *NestedOldSorting, allocator: std.mem.Allocator) void {
-        self.map.deinit(allocator);
-        allocator.free(self.slots);
-        self.* = undefined;
-    }
-
-    pub fn get(self: *const NestedOldSorting, type_def_index: u32) []const u32 {
-        const s = self.map.get(type_def_index) orelse return &.{};
-        return self.slots[s.start..][0..s.len];
     }
 };
 
