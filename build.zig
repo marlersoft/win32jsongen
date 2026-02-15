@@ -52,6 +52,12 @@ pub fn build(b: *Build) !void {
         break :blk out_dir;
     };
 
+    const win32json = b.option(
+        []const u8,
+        "win32json",
+        "Path to the win32json repository to install the output to.",
+    ) orelse b.pathResolve(&.{ b.build_root.path.?, "win32json" });
+
     {
         // we can't use b.installDirectory because we need to make sure we delete
         // all existing files before installing the new ones in case JSON files are removed
@@ -69,7 +75,8 @@ pub fn build(b: *Build) !void {
         });
         const install = b.addRunArtifact(install_exe);
         install.addDirectoryArg(gen_out_dir);
-        install.addArg(b.pathResolve(&.{ b.build_root.path.?, "win32json", "api" }));
+
+        install.addArg(try std.fs.path.join(b.allocator, &.{ win32json, "api" }));
         b.getInstallStep().dependOn(&install.step);
     }
 
