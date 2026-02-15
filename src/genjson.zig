@@ -502,6 +502,12 @@ const JsonStrings = struct {
         try strings.writer.print("\n{f}{s}", .{ strings.line_prefix.indent(), strings.sep.next() });
         try strings.writer.print("\"{s}\"", .{string});
     }
+    pub fn addObject(strings: *JsonStrings, comptime fmt: []const u8, args: anytype) error{WriteFailed}!void {
+        try strings.writer.print("\n{f}{s}", .{ strings.line_prefix.indent(), strings.sep.next() });
+        try strings.writer.print("{{", .{});
+        try strings.writer.print(fmt, args);
+        try strings.writer.print("}}", .{});
+    }
 };
 
 fn generateFunction(
@@ -548,6 +554,7 @@ fn generateFunction(
     var platform: ?[]const u8 = null;
     var arches: ?Architectures = null;
     var DoesNotReturn: bool = false;
+    var Obsolete: ?ObsoleteAttr = null;
 
     var it = md.custom_attr_map.getIterator(.init(.MethodDef, @intCast(method_index)));
     while (it.next()) |custom_attr_index| {
@@ -563,6 +570,7 @@ fn generateFunction(
                 arches = a;
             },
             .DoesNotReturn => DoesNotReturn = true,
+            .Obsolete => |o| Obsolete = o,
             else => std.debug.panic("unhandled function attribute {}", .{custom_attr}),
         }
     }
@@ -615,6 +623,13 @@ fn generateFunction(
         if (method.attributes.special_name) try strings.add("SpecialName");
         if (DoesNotReturn) try strings.add("DoesNotReturn");
         if (method.impl_flags.preserve_sig) try strings.add("PreserveSig");
+        if (Obsolete) |o| {
+            if (o.Message) |Message| {
+                try strings.addObject("\"Kind\":\"Obsolete\",\"Message\":\"{s}\"", .{Message});
+            } else {
+                try strings.add("Obsolete");
+            }
+        }
         try strings.finish();
     }
     try writer.writeAll("]\n");
@@ -805,6 +820,7 @@ fn generateType(
                     std.debug.assert(!attrs.is_agile);
                     attrs.is_agile = true;
                 },
+                .Obsolete => |o| attrs.Obsolete = o,
                 else => std.debug.panic("unexpected custom attribute '{s}' on TypeDef", .{@tagName(custom_attr)}),
             }
         }
@@ -821,6 +837,7 @@ fn generateType(
             // .field_count == 1,
             .also_usable_for = .allowed,
             .invalid_handle_value = .allowed,
+            .Obsolete = .no,
         });
         // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         // TODO: verify maybe_base_type
@@ -869,6 +886,7 @@ fn generateType(
             .layout = .auto,
             .also_usable_for = .no,
             .invalid_handle_value = .no,
+            .Obsolete = .no,
         });
         try generateCom(
             writer,
@@ -913,6 +931,7 @@ fn generateType(
                 .layout = .auto,
                 .also_usable_for = .no,
                 .invalid_handle_value = .no,
+                .Obsolete = .no,
             });
             try writer.print("{f},\"Kind\":\"Enum\"\n", .{line_prefix});
             try writer.print("{f},\"Flags\":{}\n", .{ line_prefix, attrs.is_flags });
@@ -945,6 +964,7 @@ fn generateType(
                 .layout = if (maybe_com_guid != null) .sequential else null,
                 .also_usable_for = .no,
                 .invalid_handle_value = .no,
+                .Obsolete = .no,
             });
             if (maybe_com_guid) |com_guid| {
                 try writer.print("{f},\"Kind\":\"ComClassID\"\n", .{line_prefix});
@@ -983,6 +1003,7 @@ fn generateType(
                 .layout = .auto,
                 .also_usable_for = .no,
                 .invalid_handle_value = .no,
+                .Obsolete = .no,
             });
             try generateFunctionPointer(
                 writer,
@@ -1112,20 +1133,26 @@ const FmtComAttrs = struct {
     }
 };
 
+const ObsoleteAttr = struct {
+    Message: ?[]const u8,
+};
+
 const FieldAttrs = struct {
     Const: bool = false,
     NotNullTerminated: bool = false,
     NullNullTerminated: bool = false,
-    Obsolete: ?struct { Message: ?[]const u8 } = null,
+    Obsolete: ?ObsoleteAttr = null,
     Optional: bool = false,
     pub fn format(self: FieldAttrs, writer: *std.Io.Writer) error{WriteFailed}!void {
         var sep: FirstOnce("", ",") = .{};
         if (self.Obsolete) |obsolete| {
-            _ = obsolete;
-            try writer.print("{s}\"Obselete\"", .{sep.next()});
-            // try writer.print("{s}{{\"Kind\":\"Obsolete\",\"Message\":\"{s}\"}}", .{
-            //     sep.next(), obsolete.Message orelse "",
-            // });
+            if (obsolete.Message) |Message| {
+                _ = Message;
+                @panic("todo: implement Obsolete Message");
+                // try writer.print("{s}{{\"Kind\":\"Obsolete\",\"Message\":\"{s}\"||", .{sep.next(), Message});
+            } else {
+                try writer.print("{s}\"Obsolete\"", .{sep.next()});
+            }
         }
         inline for (std.meta.fields(FieldAttrs)) |field| {
             if (comptime !std.mem.eql(u8, field.name, "Obsolete")) {
@@ -1432,12 +1459,14 @@ const TypeAttrs = struct {
     scoped_enum: bool = false,
     invalid_handle_value: ?u64 = null,
     is_agile: bool = false,
+    Obsolete: ?ObsoleteAttr = null,
     pub fn verify(self: *const TypeAttrs, o: struct {
         scoped_enum: enum { no, allowed },
         free_func: enum { no, allowed },
         layout: ?winmd.Layout,
         also_usable_for: enum { no, allowed },
         invalid_handle_value: enum { no, allowed },
+        Obsolete: enum { no, allowed },
     }) void {
         switch (o.scoped_enum) {
             .no => std.debug.assert(self.scoped_enum == false),
@@ -1461,6 +1490,10 @@ const TypeAttrs = struct {
         }
         switch (o.invalid_handle_value) {
             .no => std.debug.assert(self.invalid_handle_value == null),
+            .allowed => {},
+        }
+        switch (o.Obsolete) {
+            .no => std.debug.assert(self.Obsolete == null),
             .allowed => {},
         }
     }
@@ -1627,9 +1660,7 @@ const CustomAttr = union(enum) {
     Agile,
     Const,
     NativeArray: NativeArray,
-    Obsolete: struct {
-        Message: ?[]const u8,
-    },
+    Obsolete: ObsoleteAttr,
     NotNullTerminated,
     NullNullTerminated,
     ComOutPtr,
@@ -1680,7 +1711,10 @@ fn decodeCustomAttr(
         if (std.mem.eql(u8, value, &[_]u8{ 0, 0 })) {
             return .{ .Obsolete = .{ .Message = null } };
         }
-        @panic("TODO: support obsolete with message");
+        // 1 fixed arg (string), 0 named args
+        const string = decodeString(value);
+        std.debug.assert(std.mem.eql(u8, value[string.end..], &[_]u8{ 0, 0 }));
+        return .{ .Obsolete = .{ .Message = string.bytes } };
     }
 
     if (name.eql("System.Runtime.InteropServices", "UnmanagedFunctionPointerAttribute")) {
