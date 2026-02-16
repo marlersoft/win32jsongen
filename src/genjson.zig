@@ -390,6 +390,7 @@ fn generateApi(
                 method_index,
                 .{ .depth = 1 },
                 .fixed,
+                .{ .cdecl = false, .obsolete = null },
             );
             unicode_aliases.add(arena, name);
         }
@@ -510,6 +511,11 @@ const JsonStrings = struct {
     }
 };
 
+const FunctionAttrs = struct {
+    cdecl: bool,
+    obsolete: ?ObsoleteAttr,
+};
+
 fn generateFunction(
     writer: *std.Io.Writer,
     md: *const Metadata,
@@ -517,7 +523,8 @@ fn generateFunction(
     patch_map: *const std.StringHashMapUnmanaged(patch.FuncPatches),
     method_index: usize,
     line_prefix: LinePrefix,
-    kind: union(enum) { fixed, ptr: ?ObsoleteAttr, com },
+    kind: enum { fixed, ptr, com },
+    function_attrs: FunctionAttrs,
 ) error{WriteFailed}![]const u8 {
     const method = md.tables.row(.MethodDef, method_index);
     const name = md.getString(method.name);
@@ -575,14 +582,9 @@ fn generateFunction(
         }
     }
 
-    switch (kind) {
-        .fixed, .com => {},
-        .ptr => |func_ptr_obsolete| {
-            if (func_ptr_obsolete != null) {
-                if (Obsolete != null) @panic("todo");
-                Obsolete = func_ptr_obsolete;
-            }
-        },
+    if (function_attrs.obsolete != null) {
+        if (Obsolete != null) @panic("todo");
+        Obsolete = function_attrs.obsolete;
     }
 
     try writer.print("{f},\"SetLastError\":{}\n", .{ line_prefix, set_last_error });
@@ -640,6 +642,7 @@ fn generateFunction(
                 try strings.add("Obsolete");
             }
         }
+        if (function_attrs.cdecl) try strings.add("Cdecl");
         try strings.finish();
     }
     try writer.writeAll("]\n");
@@ -801,8 +804,9 @@ fn generateType(
                     std.debug.assert(!attrs.is_flags);
                     attrs.is_flags = true;
                 },
-                .UnmanagedFunctionPointer => {
-                    // std.log.warn("TODO: do something with UnmanagedFunctionPointer attribute", .{});
+                .UnmanagedFunctionPointer => |cc| {
+                    std.debug.assert(attrs.calling_convention == null);
+                    attrs.calling_convention = cc;
                 },
                 .AlsoUsableFor => |usable| {
                     std.debug.assert(attrs.also_usable_for == null);
@@ -848,6 +852,7 @@ fn generateType(
             .also_usable_for = .allowed,
             .invalid_handle_value = .allowed,
             .Obsolete = .no,
+            .calling_convention = .no,
         });
         // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         // TODO: verify maybe_base_type
@@ -897,6 +902,7 @@ fn generateType(
             .also_usable_for = .no,
             .invalid_handle_value = .no,
             .Obsolete = .no,
+            .calling_convention = .no,
         });
         try generateCom(
             writer,
@@ -942,6 +948,7 @@ fn generateType(
                 .also_usable_for = .no,
                 .invalid_handle_value = .no,
                 .Obsolete = .no,
+                .calling_convention = .no,
             });
             try writer.print("{f},\"Kind\":\"Enum\"\n", .{line_prefix});
             try writer.print("{f},\"Flags\":{}\n", .{ line_prefix, attrs.is_flags });
@@ -975,6 +982,7 @@ fn generateType(
                 .also_usable_for = .no,
                 .invalid_handle_value = .no,
                 .Obsolete = if (maybe_com_guid != null) .no else .allowed,
+                .calling_convention = .no,
             });
             if (maybe_com_guid) |com_guid| {
                 try writer.print("{f},\"Kind\":\"ComClassID\"\n", .{line_prefix});
@@ -1014,6 +1022,7 @@ fn generateType(
                 .also_usable_for = .no,
                 .invalid_handle_value = .no,
                 .Obsolete = .allowed,
+                .calling_convention = .allowed,
             });
             try generateFunctionPointer(
                 writer,
@@ -1022,7 +1031,13 @@ fn generateType(
                 &api_patches.func_map,
                 type_def_index,
                 line_prefix,
-                attrs.Obsolete,
+                .{
+                    .cdecl = if (attrs.calling_convention) |cc| switch (cc) {
+                        .Winapi => false,
+                        .Cdecl => true,
+                    } else false,
+                    .obsolete = attrs.Obsolete,
+                },
             );
             return name;
         },
@@ -1087,6 +1102,7 @@ fn generateCom(
                 i,
                 .{ .depth = 2 },
                 .com,
+                .{ .cdecl = false, .obsolete = null },
             );
         }
         try writer.print("\t{s}]\n", .{prefix.next()});
@@ -1101,7 +1117,7 @@ fn generateFunctionPointer(
     patch_map: *const std.StringHashMapUnmanaged(patch.FuncPatches),
     type_def_index: u32,
     line_prefix: LinePrefix,
-    obsolete: ?ObsoleteAttr,
+    function_attrs: FunctionAttrs,
 ) error{WriteFailed}!void {
     std.debug.assert(md.tables.typeDefRange(type_def_index, .fields).count() == 0);
     std.debug.assert(null == md.nested_map.store.get(type_def_index));
@@ -1119,7 +1135,8 @@ fn generateFunctionPointer(
         patch_map,
         methods.start + 1,
         line_prefix,
-        .{ .ptr = obsolete },
+        .ptr,
+        function_attrs,
     );
 }
 
@@ -1475,6 +1492,7 @@ const TypeAttrs = struct {
     invalid_handle_value: ?u64 = null,
     is_agile: bool = false,
     Obsolete: ?ObsoleteAttr = null,
+    calling_convention: ?CallingConvention = null,
     pub fn verify(self: *const TypeAttrs, o: struct {
         scoped_enum: enum { no, allowed },
         free_func: enum { no, allowed },
@@ -1482,6 +1500,7 @@ const TypeAttrs = struct {
         also_usable_for: enum { no, allowed },
         invalid_handle_value: enum { no, allowed },
         Obsolete: enum { no, allowed },
+        calling_convention: enum { no, allowed },
     }) void {
         switch (o.scoped_enum) {
             .no => std.debug.assert(self.scoped_enum == false),
@@ -1509,6 +1528,10 @@ const TypeAttrs = struct {
         }
         switch (o.Obsolete) {
             .no => std.debug.assert(self.Obsolete == null),
+            .allowed => {},
+        }
+        switch (o.calling_convention) {
+            .no => std.debug.assert(self.calling_convention == null),
             .allowed => {},
         }
     }
@@ -1658,13 +1681,18 @@ const Architectures = packed struct(u32) {
     reserved: u29,
 };
 
+const CallingConvention = enum {
+    Winapi,
+    Cdecl,
+};
+
 const CustomAttr = union(enum) {
     Guid: Guid,
     PropertyKey: PropertyKey,
     NativeTypedef,
     Flags,
     RaiiFree: []const u8,
-    UnmanagedFunctionPointer,
+    UnmanagedFunctionPointer: CallingConvention,
     AlsoUsableFor: []const u8,
     SupportedOSPlatform: []const u8,
     SupportedArchitecture: Architectures,
@@ -1734,8 +1762,9 @@ fn decodeCustomAttr(
 
     if (name.eql("System.Runtime.InteropServices", "UnmanagedFunctionPointerAttribute")) {
         // NOTE: 1 fixed arg, 0 named args
-        std.debug.assert(std.mem.eql(u8, value, &[_]u8{ 1, 0, 0, 0, 0, 0 }));
-        return .UnmanagedFunctionPointer;
+        if (std.mem.eql(u8, value, &[_]u8{ 1, 0, 0, 0, 0, 0 })) return .{ .UnmanagedFunctionPointer = .Winapi };
+        if (std.mem.eql(u8, value, &[_]u8{ 2, 0, 0, 0, 0, 0 })) return .{ .UnmanagedFunctionPointer = .Cdecl };
+        std.debug.panic("unexpected data 0x{x}", .{value});
     }
 
     if (name.eql("System.Diagnostics.CodeAnalysis", "DoesNotReturnAttribute")) {
