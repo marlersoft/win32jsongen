@@ -1,7 +1,7 @@
 const std = @import("std");
 const Build = std.Build;
 
-const version = "30.0.12-preview";
+const version = "31.0.4-preview";
 
 pub fn build(b: *Build) !void {
     const metadata_nupkg_file = blk: {
