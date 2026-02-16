@@ -517,7 +517,7 @@ fn generateFunction(
     patch_map: *const std.StringHashMapUnmanaged(patch.FuncPatches),
     method_index: usize,
     line_prefix: LinePrefix,
-    kind: enum { fixed, ptr, com },
+    kind: union(enum) { fixed, ptr: ?ObsoleteAttr, com },
 ) error{WriteFailed}![]const u8 {
     const method = md.tables.row(.MethodDef, method_index);
     const name = md.getString(method.name);
@@ -573,6 +573,16 @@ fn generateFunction(
             .Obsolete => |o| Obsolete = o,
             else => std.debug.panic("unhandled function attribute {}", .{custom_attr}),
         }
+    }
+
+    switch (kind) {
+        .fixed, .com => {},
+        .ptr => |func_ptr_obsolete| {
+            if (func_ptr_obsolete != null) {
+                if (Obsolete != null) @panic("todo");
+                Obsolete = func_ptr_obsolete;
+            }
+        },
     }
 
     try writer.print("{f},\"SetLastError\":{}\n", .{ line_prefix, set_last_error });
@@ -964,7 +974,7 @@ fn generateType(
                 .layout = if (maybe_com_guid != null) .sequential else null,
                 .also_usable_for = .no,
                 .invalid_handle_value = .no,
-                .Obsolete = .no,
+                .Obsolete = if (maybe_com_guid != null) .no else .allowed,
             });
             if (maybe_com_guid) |com_guid| {
                 try writer.print("{f},\"Kind\":\"ComClassID\"\n", .{line_prefix});
@@ -1003,7 +1013,7 @@ fn generateType(
                 .layout = .auto,
                 .also_usable_for = .no,
                 .invalid_handle_value = .no,
-                .Obsolete = .no,
+                .Obsolete = .allowed,
             });
             try generateFunctionPointer(
                 writer,
@@ -1012,6 +1022,7 @@ fn generateType(
                 &api_patches.func_map,
                 type_def_index,
                 line_prefix,
+                attrs.Obsolete,
             );
             return name;
         },
@@ -1090,6 +1101,7 @@ fn generateFunctionPointer(
     patch_map: *const std.StringHashMapUnmanaged(patch.FuncPatches),
     type_def_index: u32,
     line_prefix: LinePrefix,
+    obsolete: ?ObsoleteAttr,
 ) error{WriteFailed}!void {
     std.debug.assert(md.tables.typeDefRange(type_def_index, .fields).count() == 0);
     std.debug.assert(null == md.nested_map.store.get(type_def_index));
@@ -1107,7 +1119,7 @@ fn generateFunctionPointer(
         patch_map,
         methods.start + 1,
         line_prefix,
-        .ptr,
+        .{ .ptr = obsolete },
     );
 }
 
@@ -1190,6 +1202,9 @@ fn generateStruct(
     };
     try writer.print("{f},\"Size\":0\n", .{line_prefix});
     try writer.print("{f},\"PackingSize\":{d}\n", .{ line_prefix, packing_size });
+    try writer.print("{f},\"Attrs\":[", .{line_prefix});
+    try fmtTypeAttrs(attrs).format(writer);
+    try writer.writeAll("]\n");
     try writer.print("{f},\"Fields\":[\n", .{line_prefix});
 
     var const_field_count: usize = 0;
@@ -1985,6 +2000,23 @@ const FmtTypeDefOrRef = struct {
                     .parents = &api.parents,
                 });
             },
+        }
+    }
+};
+
+fn fmtTypeAttrs(attrs: *const TypeAttrs) FmtTypeAttrs {
+    return .{ .attrs = attrs };
+}
+const FmtTypeAttrs = struct {
+    attrs: *const TypeAttrs,
+    pub fn format(self: FmtTypeAttrs, writer: *std.Io.Writer) error{WriteFailed}!void {
+        var sep: FirstOnce("", ",") = .{};
+        if (self.attrs.Obsolete) |obsolete| {
+            if (obsolete.Message) |Message| {
+                try writer.print("{s}{{\"Kind\":\"Obsolete\",\"Message\":\"{s}\"}}", .{ sep.next(), Message });
+            } else {
+                try writer.print("{s}\"Obsolete\"", .{sep.next()});
+            }
         }
     }
 };
