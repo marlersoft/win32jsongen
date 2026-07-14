@@ -10,8 +10,8 @@
             .hash = "zipcmdline-0.0.0-DFii07hmAwCFNhtMpml64Pj_hr8kN4WesClygZErQHsk",
         },
         .winmd = .{
-            .url = "git+https://github.com/marler8997/winmd-zig#86b3bf4e1acfe56f9b4e4a2a9cc33911567c2036",
-            .hash = "winmd-0.0.0-2QIrG94qAQD9gWvhuutrdoVJtY3zlhfukRvtmA1GZh5O",
+            .url = "git+https://github.com/marler8997/winmd-zig#743cf3041b874d61c809b9eab348204f32723051",
+            .hash = "winmd-0.0.0-2QIrG-kqAQC4Ewoqp2lHX9SZ7G2C3hf6pcKk8a86a6mR",
         },
     },
     .paths = .{
