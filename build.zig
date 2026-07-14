@@ -73,6 +73,8 @@ pub fn build(b: *Build) !void {
                 .target = b.graph.host,
             }),
         });
+        install_exe.rc_includes = .none;
+        install_exe.addWin32ResourceFile(.{ .file = b.path("src/win32/install.rc") });
         const install = b.addRunArtifact(install_exe);
         install.addDirectoryArg(gen_out_dir);
 
