@@ -1072,19 +1072,27 @@ fn generateCom(
     try writer.writeAll("]\n");
 
     try writer.writeAll("\t,\"Interface\":");
-    if (md.interface_map.get(type_def_index)) |interface| {
-        // NOTE: old code would verify the interface has no custom attributes
-        try fmtTypeDefOrRef(md, api_name, .{
-            .table = switch (interface.table) {
-                .TypeDef => @panic("all interfaces are TypeRef's so far"),
-                .TypeRef => .TypeRef,
-                .TypeSpec => @panic("TypeSpec unsupported"),
-                _ => @panic("invalid table"),
-            },
-            .index = interface.index.asIndex().?,
-        }).format(writer);
-    } else {
-        try writer.writeAll("null");
+    {
+        var it = md.interface_map.getIterator(type_def_index);
+        if (it.next()) |row_index| {
+            if (it.next()) |_| std.debug.panic(
+                "com type (TypeDef index {}) implements multiple interfaces",
+                .{type_def_index},
+            );
+            const interface = md.tables.row(.InterfaceImpl, row_index).interface;
+            // NOTE: old code would verify the interface has no custom attributes
+            try fmtTypeDefOrRef(md, api_name, .{
+                .table = switch (interface.table) {
+                    .TypeDef => @panic("all interfaces are TypeRef's so far"),
+                    .TypeRef => .TypeRef,
+                    .TypeSpec => @panic("TypeSpec unsupported"),
+                    _ => @panic("invalid table"),
+                },
+                .index = interface.index.asIndex().?,
+            }).format(writer);
+        } else {
+            try writer.writeAll("null");
+        }
     }
     try writer.writeAll("\n");
 
