@@ -45,6 +45,12 @@ pub fn build(b: *Build) !void {
             }),
         });
         exe.root_module.addImport("winmd", winmd_dep.module("winmd"));
+        {
+            const genjson = b.addRunArtifact(exe);
+            if (b.args) |a| genjson.addArgs(a);
+            b.step("genjson", "").dependOn(&genjson.step);
+        }
+
         const run = b.addRunArtifact(exe);
         run.addFileArg(winmd);
         const out_dir = run.addOutputDirectoryArg(".");
