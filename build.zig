@@ -82,9 +82,11 @@ pub fn build(b: *Build) !void {
         install_exe.rc_includes = .none;
         install_exe.addWin32ResourceFile(.{ .file = b.path("src/win32/install.rc") });
         const install = b.addRunArtifact(install_exe);
+        install.addArg(version);
         install.addDirectoryArg(gen_out_dir);
-
-        install.addArg(try std.fs.path.join(b.allocator, &.{ win32json, "api" }));
+        install.addFileArg(b.path("src/static/README.md"));
+        install.addFileArg(b.path("src/static/LICENSE"));
+        install.addArg(win32json);
         b.getInstallStep().dependOn(&install.step);
     }
 
